@@ -59,7 +59,7 @@ using Reloj = std::chrono::high_resolution_clock;
 void mergeSort(Arreglo& arr, int left, int right);
 void quickSort(Arreglo& arr, int low, int high);
 void patienceSort(Arreglo& arr);
-void sortArray(Arreglo& arr);
+std::vector<int> sortArray(std::vector<int>& arr);
 
 
 // ------------------------------------------------------------
