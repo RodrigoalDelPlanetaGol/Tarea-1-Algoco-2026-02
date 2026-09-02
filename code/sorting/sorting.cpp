@@ -80,7 +80,9 @@ static const fs::path CARPETA_MEDICIONES =
 static const fs::path ARCHIVO_CSV =
     CARPETA_MEDICIONES / "sorting_measurements.csv";
 
-
+// Quick Sort no se mide para arreglos extremadamente grandes,
+// debido al tiempo de ejecución observado en estos casos.
+static const std::size_t QUICK_SORT_MAX_N = 1'000'000;
 // ------------------------------------------------------------
 // Metadatos del archivo
 //
@@ -857,6 +859,20 @@ int main() {
             for (const auto& algoritmo :
                  algoritmos) {
 
+            // --------------------------------------------------------
+            // Quick Sort: omitir tamaños extremadamente grandes
+            // --------------------------------------------------------
+
+            if(
+                algoritmo.nombre == "quick" &&
+                arreglo.size() > QUICK_SORT_MAX_N
+            ){
+                std::cout     
+                    << " Omitiendo quick sort para ="
+                    << arreglo.size()
+                    << " (tiempo de ejecución excesivo esperado)\n";
+                continue;
+            }
 
                 std::cout
                     << "    Ejecutando "
