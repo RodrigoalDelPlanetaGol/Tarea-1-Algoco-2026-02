@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -9,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
@@ -16,39 +18,37 @@
 #include <psapi.h>
 #elif defined(__linux__)
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 // ============================================================
 // matrix_multiplication.cpp
 //
 // Programa principal para realizar las mediciones experimentales
-// de los algoritmos de multiplicación de matrices:
+// de:
 //
 //   - Naive
 //   - Strassen
 //
-// Flujo:
+// En Linux, cada ejecución del algoritmo se realiza en un
+// proceso hijo independiente. Esto permite obtener el pico de
+// memoria residente (ru_maxrss) de ESA ejecución.
 //
-//   1) Lee los archivos de data/matrix_input/
-//   2) Agrupa los archivos _1 y _2 que pertenecen al mismo caso
-//   3) Lee las matrices A y B
-//   4) Ejecuta Naive y Strassen
-//   5) Mide tiempo y memoria
-//   6) Verifica la corrección del resultado
-//   7) Guarda las matrices resultantes
-//   8) Guarda las mediciones en un CSV
+// Casos:
 //
-// Formato de entrada:
+//   n = 16
+//   n = 64
+//   n = 256
 //
-//   {n}_{t}_{d}_{m}_1.txt
-//   {n}_{t}_{d}_{m}_2.txt
+// Se omite:
 //
-// Ejemplo:
+//   n = 1024
 //
-//   16_densa_D0_a_1.txt
-//   16_densa_D0_a_2.txt
-//
+// debido al costo computacional excesivo.
 // ============================================================
+
 
 namespace fs = std::filesystem;
 
@@ -56,28 +56,21 @@ using Matriz = std::vector<std::vector<int>>;
 using Reloj = std::chrono::high_resolution_clock;
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Límite experimental
-//
-// Las matrices de n=1024 se omiten inicialmente para evitar
-// tiempos de ejecución excesivos.
-// Se medirán normalmente:
-//     16, 64, 256
-//
-// Se podrá modificar fácilmente este límite posteriormente.
-// ------------------------------------------------------------
+// ============================================================
 
 static const std::size_t MAX_MATRIX_N = 256;
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Declaraciones de los algoritmos
 //
-// Implementaciones ubicadas en:
+// Implementaciones:
 //
 //   algorithms/naive.cpp
 //   algorithms/strassen.cpp
-// ------------------------------------------------------------
+// ============================================================
 
 Matriz naiveMultiply(
     const Matriz& A,
@@ -90,9 +83,9 @@ Matriz strassen(
 );
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Rutas
-// ------------------------------------------------------------
+// ============================================================
 
 static const fs::path BASE_DIR = fs::path("data");
 
@@ -109,17 +102,17 @@ static const fs::path ARCHIVO_CSV =
     CARPETA_MEDICIONES / "matrix_measurements.csv";
 
 
-// ------------------------------------------------------------
-// Metadatos de un archivo
+// ============================================================
+// Metadatos
 //
 // Formato:
 //
-//   n_tipo_dominio_muestra_lado
+//   n_tipo_dominio_muestra_lado.txt
 //
 // Ejemplo:
 //
-//   16_densa_D0_a_1
-// ------------------------------------------------------------
+//   16_densa_D0_a_1.txt
+// ============================================================
 
 struct MetadatosArchivo {
 
@@ -135,18 +128,14 @@ struct MetadatosArchivo {
 };
 
 
-// ------------------------------------------------------------
-// Clave que identifica un caso completo
+// ============================================================
+// Clave de un caso
 //
-// Un caso está compuesto por:
+// Cada caso posee dos matrices:
 //
-//   n + tipo + dominio + muestra
-//
-// y posee dos archivos:
-//
-//   _1 -> matriz A
-//   _2 -> matriz B
-// ------------------------------------------------------------
+//   _1 -> A
+//   _2 -> B
+// ============================================================
 
 struct ClaveCaso {
 
@@ -178,9 +167,9 @@ struct ClaveCaso {
 };
 
 
-// ------------------------------------------------------------
-// Representación de un archivo asociado a un caso
-// ------------------------------------------------------------
+// ============================================================
+// Archivo perteneciente a un caso
+// ============================================================
 
 struct CasoArchivo {
 
@@ -190,9 +179,9 @@ struct CasoArchivo {
 };
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Resultado de una medición
-// ------------------------------------------------------------
+// ============================================================
 
 struct Medicion {
 
@@ -220,21 +209,23 @@ struct Medicion {
 };
 
 
-// ------------------------------------------------------------
-// Extraer metadatos desde el nombre
-//
-// Ejemplo:
-//
-//   16_densa_D0_a_1.txt
-//
-// grupos:
-//
-//   1 -> 16
-//   2 -> densa
-//   3 -> D0
-//   4 -> a
-//   5 -> 1
-// ------------------------------------------------------------
+// ============================================================
+// Resultado interno de una ejecución
+// ============================================================
+
+struct ResultadoEjecucion {
+
+    Matriz matriz_resultado;
+
+    long long tiempo_us = 0;
+
+    long long memoria_kb = -1;
+};
+
+
+// ============================================================
+// Extraer metadatos del nombre
+// ============================================================
 
 static MetadatosArchivo extraer_metadatos(
     const fs::path& ruta
@@ -269,14 +260,18 @@ static MetadatosArchivo extraer_metadatos(
                 )
             );
 
+
         meta.tipo =
             coincidencia[2].str();
+
 
         meta.dominio =
             coincidencia[3].str();
 
+
         meta.muestra =
             coincidencia[4].str();
+
 
         meta.lado =
             coincidencia[5].str();
@@ -287,9 +282,9 @@ static MetadatosArchivo extraer_metadatos(
 }
 
 
-// ------------------------------------------------------------
-// Convertir metadatos a clave de caso
-// ------------------------------------------------------------
+// ============================================================
+// Crear clave a partir de metadatos
+// ============================================================
 
 static ClaveCaso clave_de(
     const MetadatosArchivo& meta
@@ -304,12 +299,12 @@ static ClaveCaso clave_de(
 }
 
 
-// ------------------------------------------------------------
-// Leer matriz desde archivo
+// ============================================================
+// Leer matriz
 //
-// Los archivos generados no incluyen dimensiones en la primera
-// línea. Contienen directamente las filas de la matriz.
-// ------------------------------------------------------------
+// Los archivos contienen directamente los elementos de la
+// matriz, sin una línea inicial con dimensiones.
+// ============================================================
 
 static Matriz leer_matriz(
     const fs::path& ruta,
@@ -356,12 +351,11 @@ static Matriz leer_matriz(
 }
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Escribir matriz
 //
-// Se utiliza el mismo formato de los archivos de entrada:
-// únicamente los valores de la matriz.
-// ------------------------------------------------------------
+// La salida conserva el mismo formato que las entradas.
+// ============================================================
 
 static void escribir_matriz(
     const fs::path& ruta,
@@ -385,13 +379,19 @@ static void escribir_matriz(
 
     for (const auto& fila : matriz) {
 
-        for (std::size_t j = 0;
-             j < fila.size();
-             ++j) {
+        for (
+            std::size_t j = 0;
+            j < fila.size();
+            ++j
+        ) {
 
             salida << fila[j];
 
-            if (j + 1 < fila.size()) {
+            if (
+                j + 1 <
+                fila.size()
+            ) {
+
                 salida << ' ';
             }
         }
@@ -401,34 +401,50 @@ static void escribir_matriz(
 }
 
 
-// ------------------------------------------------------------
-// Comparar dos matrices
-// ------------------------------------------------------------
+// ============================================================
+// Comparar matrices
+// ============================================================
 
 static bool matrices_iguales(
     const Matriz& A,
     const Matriz& B
 ) {
 
-    if (A.size() != B.size()) {
+    if (
+        A.size() !=
+        B.size()
+    ) {
+
         return false;
     }
 
 
-    for (std::size_t i = 0;
-         i < A.size();
-         ++i) {
+    for (
+        std::size_t i = 0;
+        i < A.size();
+        ++i
+    ) {
 
-        if (A[i].size() != B[i].size()) {
+        if (
+            A[i].size() !=
+            B[i].size()
+        ) {
+
             return false;
         }
 
 
-        for (std::size_t j = 0;
-             j < A[i].size();
-             ++j) {
+        for (
+            std::size_t j = 0;
+            j < A[i].size();
+            ++j
+        ) {
 
-            if (A[i][j] != B[i][j]) {
+            if (
+                A[i][j] !=
+                B[i][j]
+            ) {
+
                 return false;
             }
         }
@@ -439,13 +455,505 @@ static bool matrices_iguales(
 }
 
 
-// ------------------------------------------------------------
-// Medición de memoria
-// ------------------------------------------------------------
+// ============================================================
+// LINUX
+//
+// Funciones auxiliares para pipes.
+// ============================================================
+
+#ifdef __linux__
+
+static void escribir_todo(
+    int fd,
+    const void* buffer,
+    std::size_t cantidad
+) {
+
+    const char* datos =
+        static_cast<const char*>(buffer);
+
+
+    std::size_t enviados = 0;
+
+
+    while (
+        enviados <
+        cantidad
+    ) {
+
+        const ssize_t resultado =
+            write(
+                fd,
+                datos + enviados,
+                cantidad - enviados
+            );
+
+
+        if (
+            resultado <= 0
+        ) {
+
+            throw std::runtime_error(
+                "Error escribiendo en pipe."
+            );
+        }
+
+
+        enviados +=
+            static_cast<std::size_t>(
+                resultado
+            );
+    }
+}
+
+
+static void leer_todo(
+    int fd,
+    void* buffer,
+    std::size_t cantidad
+) {
+
+    char* datos =
+        static_cast<char*>(buffer);
+
+
+    std::size_t recibidos = 0;
+
+
+    while (
+        recibidos <
+        cantidad
+    ) {
+
+        const ssize_t resultado =
+            read(
+                fd,
+                datos + recibidos,
+                cantidad - recibidos
+            );
+
+
+        if (
+            resultado <= 0
+        ) {
+
+            throw std::runtime_error(
+                "Error leyendo desde pipe."
+            );
+        }
+
+
+        recibidos +=
+            static_cast<std::size_t>(
+                resultado
+            );
+    }
+}
+
+#endif
+
+
+// ============================================================
+// Ejecutar un algoritmo de manera experimental
+//
+// Linux:
+//
+//   Padre
+//      |
+//      +-- fork()
+//             |
+//             +-- hijo
+//                    |
+//                    +-- copia matriz
+//                    +-- mide tiempo
+//                    +-- ejecuta algoritmo
+//                    +-- devuelve resultado
+//             |
+//             +-- wait4()
+//                    |
+//                    +-- obtiene ru_maxrss
+//
+// Windows:
+//
+//   Se ejecuta directamente en el proceso actual.
+//
+// Las mediciones definitivas se realizarán en Linux.
+// ============================================================
+
+static ResultadoEjecucion ejecutar_experimentalmente(
+
+    const Matriz& A,
+
+    const Matriz& B,
+
+    const std::function<Matriz(
+        const Matriz&,
+        const Matriz&
+    )>& funcion
+
+) {
+
+#ifdef __linux__
+
+    int pipe_resultado[2];
+
+
+    if (
+        pipe(pipe_resultado) != 0
+    ) {
+
+        throw std::runtime_error(
+            "No se pudo crear el pipe."
+        );
+    }
+
+
+    const pid_t pid =
+        fork();
+
+
+    if (pid < 0) {
+
+        close(pipe_resultado[0]);
+        close(pipe_resultado[1]);
+
+
+        throw std::runtime_error(
+            "No se pudo crear el proceso hijo."
+        );
+    }
+
+
+    // ========================================================
+    // HIJO
+    // ========================================================
+
+    if (pid == 0) {
+
+        close(
+            pipe_resultado[0]
+        );
+
+
+        try {
+
+            // ------------------------------------------------
+            // El hijo recibe sus propias copias.
+            // ------------------------------------------------
+
+            const Matriz matriz_A =
+                A;
+
+            const Matriz matriz_B =
+                B;
+
+
+            // ------------------------------------------------
+            // Inicio de medición
+            // ------------------------------------------------
+
+            const auto inicio =
+                Reloj::now();
+
+
+            // ------------------------------------------------
+            // Ejecutar algoritmo
+            // ------------------------------------------------
+
+            Matriz resultado =
+                funcion(
+                    matriz_A,
+                    matriz_B
+                );
+
+
+            // ------------------------------------------------
+            // Fin de medición
+            // ------------------------------------------------
+
+            const auto fin =
+                Reloj::now();
+
+
+            const long long tiempo_us =
+                std::chrono::duration_cast<
+                    std::chrono::microseconds
+                >(
+                    fin - inicio
+                ).count();
+
+
+            // ------------------------------------------------
+            // Dimensiones
+            // ------------------------------------------------
+
+            const std::uint64_t n =
+                static_cast<std::uint64_t>(
+                    resultado.size()
+                );
+
+
+            const std::uint64_t columnas =
+                resultado.empty()
+                    ? 0
+                    : static_cast<std::uint64_t>(
+                        resultado[0].size()
+                    );
+
+
+            // ------------------------------------------------
+            // Enviar dimensiones
+            // ------------------------------------------------
+
+            escribir_todo(
+                pipe_resultado[1],
+                &n,
+                sizeof(n)
+            );
+
+
+            escribir_todo(
+                pipe_resultado[1],
+                &columnas,
+                sizeof(columnas)
+            );
+
+
+            // ------------------------------------------------
+            // Enviar tiempo
+            // ------------------------------------------------
+
+            escribir_todo(
+                pipe_resultado[1],
+                &tiempo_us,
+                sizeof(tiempo_us)
+            );
+
+
+            // ------------------------------------------------
+            // Enviar matriz
+            // ------------------------------------------------
+
+            for (
+                std::size_t i = 0;
+                i < resultado.size();
+                ++i
+            ) {
+
+                if (
+                    !resultado[i].empty()
+                ) {
+
+                    escribir_todo(
+                        pipe_resultado[1],
+                        resultado[i].data(),
+                        resultado[i].size() *
+                        sizeof(int)
+                    );
+                }
+            }
+
+
+            close(
+                pipe_resultado[1]
+            );
+
+
+            _exit(0);
+        }
+
+        catch (...) {
+
+            close(
+                pipe_resultado[1]
+            );
+
+            _exit(1);
+        }
+    }
+
+
+    // ========================================================
+    // PADRE
+    // ========================================================
+
+    close(
+        pipe_resultado[1]
+    );
+
+
+    // --------------------------------------------------------
+    // Leer dimensiones
+    // --------------------------------------------------------
+
+    std::uint64_t n = 0;
+
+    std::uint64_t columnas = 0;
+
+
+    leer_todo(
+        pipe_resultado[0],
+        &n,
+        sizeof(n)
+    );
+
+
+    leer_todo(
+        pipe_resultado[0],
+        &columnas,
+        sizeof(columnas)
+    );
+
+
+    // --------------------------------------------------------
+    // Leer tiempo
+    // --------------------------------------------------------
+
+    long long tiempo_us = 0;
+
+
+    leer_todo(
+        pipe_resultado[0],
+        &tiempo_us,
+        sizeof(tiempo_us)
+    );
+
+
+    // --------------------------------------------------------
+    // Leer matriz
+    // --------------------------------------------------------
+
+    Matriz resultado(
+        static_cast<std::size_t>(n),
+        std::vector<int>(
+            static_cast<std::size_t>(columnas)
+        )
+    );
+
+
+    for (
+        std::size_t i = 0;
+        i < resultado.size();
+        ++i
+    ) {
+
+        if (
+            !resultado[i].empty()
+        ) {
+
+            leer_todo(
+                pipe_resultado[0],
+                resultado[i].data(),
+                resultado[i].size() *
+                sizeof(int)
+            );
+        }
+    }
+
+
+    close(
+        pipe_resultado[0]
+    );
+
+
+    // --------------------------------------------------------
+    // Esperar al hijo y obtener su pico RSS.
+    // --------------------------------------------------------
+
+    int estado = 0;
+
+    struct rusage uso{};
+
+
+    const pid_t terminado =
+        wait4(
+            pid,
+            &estado,
+            0,
+            &uso
+        );
+
+
+    if (
+        terminado < 0
+    ) {
+
+        throw std::runtime_error(
+            "Error esperando al proceso hijo."
+        );
+    }
+
+
+    if (
+        !WIFEXITED(estado) ||
+        WEXITSTATUS(estado) != 0
+    ) {
+
+        throw std::runtime_error(
+            "El proceso hijo terminó con error."
+        );
+    }
+
+
+    ResultadoEjecucion ejecucion;
+
+
+    ejecucion.matriz_resultado =
+        std::move(resultado);
+
+
+    ejecucion.tiempo_us =
+        tiempo_us;
+
+
+    // Linux: ru_maxrss está expresado en KB.
+
+    ejecucion.memoria_kb =
+        static_cast<long long>(
+            uso.ru_maxrss
+        );
+
+
+    return ejecucion;
+
+
+#else
+
+    // ========================================================
+    // FALLBACK
+    // ========================================================
+
+    const auto inicio =
+        Reloj::now();
+
+
+    Matriz resultado =
+        funcion(
+            A,
+            B
+        );
+
+
+    const auto fin =
+        Reloj::now();
+
+
+    ResultadoEjecucion ejecucion;
+
+
+    ejecucion.matriz_resultado =
+        std::move(resultado);
+
+
+    ejecucion.tiempo_us =
+        std::chrono::duration_cast<
+            std::chrono::microseconds
+        >(
+            fin - inicio
+        ).count();
+
 
 #ifdef _WIN32
-
-static long long memoria_actual_kb() {
 
     PROCESS_MEMORY_COUNTERS_EX info{};
 
@@ -460,55 +968,25 @@ static long long memoria_actual_kb() {
         )
     ) {
 
-        return static_cast<long long>(
-            info.WorkingSetSize / 1024ULL
-        );
+        ejecucion.memoria_kb =
+            static_cast<long long>(
+                info.PeakWorkingSetSize /
+                1024ULL
+            );
     }
-
-
-    return -1;
-}
-
-#elif defined(__linux__)
-
-static long long memoria_actual_kb() {
-
-    struct rusage uso{};
-
-
-    if (
-        getrusage(
-            RUSAGE_SELF,
-            &uso
-        ) == 0
-    ) {
-
-        return static_cast<long long>(
-            uso.ru_maxrss
-        );
-    }
-
-
-    return -1;
-}
-
-#else
-
-static long long memoria_actual_kb() {
-    return -1;
-}
 
 #endif
 
 
-// ------------------------------------------------------------
-// Medir un algoritmo
-// ------------------------------------------------------------
-//
-// La medición considera solamente la ejecución del algoritmo.
-//
-// La escritura del archivo de salida queda FUERA de la medición.
-// ------------------------------------------------------------
+    return ejecucion;
+
+#endif
+}
+
+
+// ============================================================
+// Medir algoritmo
+// ============================================================
 
 static Medicion medir_algoritmo(
 
@@ -527,50 +1005,22 @@ static Medicion medir_algoritmo(
         const Matriz&
     )>& funcion,
 
-    const Matriz& referencia,
+    const Matriz* referencia,
 
     const fs::path& carpeta_salida
 
 ) {
 
     // --------------------------------------------------------
-    // Medición de memoria antes
+    // Ejecutar algoritmo
     // --------------------------------------------------------
 
-    const long long memoria_antes =
-        memoria_actual_kb();
-
-
-    // --------------------------------------------------------
-    // Inicio
-    // --------------------------------------------------------
-
-    const auto inicio =
-        Reloj::now();
-
-
-    // --------------------------------------------------------
-    // EJECUCIÓN DEL ALGORITMO
-    // --------------------------------------------------------
-
-    Matriz resultado =
-        funcion(A, B);
-
-
-    // --------------------------------------------------------
-    // Fin
-    // --------------------------------------------------------
-
-    const auto fin =
-        Reloj::now();
-
-
-    // --------------------------------------------------------
-    // Medición de memoria después
-    // --------------------------------------------------------
-
-    const long long memoria_despues =
-        memoria_actual_kb();
+    const ResultadoEjecucion ejecucion =
+        ejecutar_experimentalmente(
+            A,
+            B,
+            funcion
+        );
 
 
     Medicion medicion;
@@ -601,69 +1051,66 @@ static Medicion medir_algoritmo(
 
 
     medicion.tiempo_us =
-        std::chrono::duration_cast<
-            std::chrono::microseconds
-        >(fin - inicio).count();
+        ejecucion.tiempo_us;
 
 
     medicion.tiempo_ms =
-        std::chrono::duration<double, std::milli>(
-            fin - inicio
-        ).count();
+        static_cast<double>(
+            ejecucion.tiempo_us
+        ) / 1000.0;
+
+
+    medicion.memoria_kb =
+        ejecucion.memoria_kb;
 
 
     // --------------------------------------------------------
-    // Memoria
+    // Verificación
+    //
+    // Naive:
+    //     siempre se considera correcta en esta etapa y pasa
+    //     a ser la referencia.
+    //
+    // Strassen:
+    //     se compara contra el resultado de Naive.
     // --------------------------------------------------------
 
     if (
-        memoria_antes >= 0 &&
-        memoria_despues >= 0
+        referencia == nullptr
     ) {
 
-        medicion.memoria_kb =
-            std::max(
-                0LL,
-                memoria_despues -
-                memoria_antes
+        medicion.resultado_correcto =
+            true;
+    }
+    else {
+
+        medicion.resultado_correcto =
+            matrices_iguales(
+                ejecucion.matriz_resultado,
+                *referencia
             );
     }
 
 
     // --------------------------------------------------------
-    // Verificación de corrección
+    // Guardar matriz
+    //
+    // Fuera de la medición temporal.
     // --------------------------------------------------------
-
-    medicion.resultado_correcto =
-        matrices_iguales(
-            resultado,
-            referencia
-        );
-
-
-    // --------------------------------------------------------
-    // Nombre de salida
-    // --------------------------------------------------------
-
-    const std::string base =
-        nombre_caso;
-
 
     const fs::path archivo_salida =
         carpeta_salida /
         (
-            base +
+            nombre_caso +
             "_" +
             nombre_algoritmo +
             ".txt"
         );
 
 
-    // La escritura NO está dentro de la medición.
-
     escribir_matriz(
         archivo_salida,
-        resultado
+        ejecucion.matriz_resultado
     );
 
 
@@ -675,9 +1122,9 @@ static Medicion medir_algoritmo(
 }
 
 
-// ------------------------------------------------------------
-// Escribir encabezado CSV
-// ------------------------------------------------------------
+// ============================================================
+// CSV
+// ============================================================
 
 static void escribir_encabezado_csv(
     std::ofstream& salida
@@ -698,45 +1145,43 @@ static void escribir_encabezado_csv(
 }
 
 
-// ------------------------------------------------------------
-// Escribir medición en CSV
-// ------------------------------------------------------------
-
 static void escribir_medicion_csv(
     std::ofstream& salida,
-    const Medicion& m
+    const Medicion& medicion
 ) {
 
     salida
-        << m.caso << ','
-        << m.algoritmo << ','
-        << m.n << ','
-        << m.tipo << ','
-        << m.dominio << ','
-        << m.muestra << ','
-        << m.tiempo_us << ','
-        << m.tiempo_ms << ','
-        << m.memoria_kb << ','
+        << medicion.caso << ','
+        << medicion.algoritmo << ','
+        << medicion.n << ','
+        << medicion.tipo << ','
+        << medicion.dominio << ','
+        << medicion.muestra << ','
+        << medicion.tiempo_us << ','
+        << medicion.tiempo_ms << ','
+        << medicion.memoria_kb << ','
         << (
-            m.resultado_correcto
+            medicion.resultado_correcto
                 ? "true"
                 : "false"
         )
         << ','
-        << m.archivo_salida
+        << medicion.archivo_salida
         << '\n';
 }
 
 
-// ------------------------------------------------------------
-// Listar todos los archivos .txt
-// ------------------------------------------------------------
+// ============================================================
+// Listar archivos
+// ============================================================
 
 static std::vector<CasoArchivo> listar_archivos(
     const fs::path& carpeta
 ) {
 
-    if (!fs::exists(carpeta)) {
+    if (
+        !fs::exists(carpeta)
+    ) {
 
         throw std::runtime_error(
             "No existe la carpeta de entrada: " +
@@ -753,7 +1198,10 @@ static std::vector<CasoArchivo> listar_archivos(
         fs::directory_iterator(carpeta)
     ) {
 
-        if (!entrada.is_regular_file()) {
+        if (
+            !entrada.is_regular_file()
+        ) {
+
             continue;
         }
 
@@ -762,6 +1210,7 @@ static std::vector<CasoArchivo> listar_archivos(
             entrada.path().extension()
             != ".txt"
         ) {
+
             continue;
         }
 
@@ -778,7 +1227,7 @@ static std::vector<CasoArchivo> listar_archivos(
         ) {
 
             std::cerr
-                << "[WARN] Archivo con nombre no reconocido: "
+                << "[WARN] Nombre no reconocido: "
                 << entrada.path().filename().string()
                 << '\n';
 
@@ -794,21 +1243,17 @@ static std::vector<CasoArchivo> listar_archivos(
 
 
     // --------------------------------------------------------
-    // Ordenar por:
-    //
-    // n
-    // tipo
-    // dominio
-    // muestra
-    // lado
+    // Orden
     // --------------------------------------------------------
 
     std::sort(
         archivos.begin(),
         archivos.end(),
 
-        [](const CasoArchivo& a,
-           const CasoArchivo& b) {
+        [](
+            const CasoArchivo& a,
+            const CasoArchivo& b
+        ) {
 
             if (
                 a.meta.n !=
@@ -865,9 +1310,9 @@ static std::vector<CasoArchivo> listar_archivos(
 }
 
 
-// ------------------------------------------------------------
+// ============================================================
 // MAIN
-// ------------------------------------------------------------
+// ============================================================
 
 int main() {
 
@@ -882,7 +1327,23 @@ int main() {
         std::cout
             << "Límite experimental: n <= "
             << MAX_MATRIX_N
-            << "\n\n";
+            << '\n';
+
+
+#ifdef __linux__
+
+        std::cout
+            << "Plataforma de medición: Linux\n"
+            << "Memoria: pico RSS por proceso hijo\n\n";
+
+#elif defined(_WIN32)
+
+        std::cout
+            << "Plataforma: Windows\n"
+            << "Advertencia: las mediciones definitivas "
+               "de memoria deben realizarse en Linux.\n\n";
+
+#endif
 
 
         // ----------------------------------------------------
@@ -918,7 +1379,9 @@ int main() {
         }
 
 
-        escribir_encabezado_csv(csv);
+        escribir_encabezado_csv(
+            csv
+        );
 
 
         // ----------------------------------------------------
@@ -932,22 +1395,24 @@ int main() {
 
 
         std::cout
-            << "Archivos de entrada encontrados: "
+            << "Archivos encontrados: "
             << archivos.size()
-            << "\n";
+            << '\n';
 
 
-        if (archivos.empty()) {
+        if (
+            archivos.empty()
+        ) {
 
             std::cerr
-                << "No se encontraron archivos de entrada.\n";
+                << "No se encontraron archivos.\n";
 
             return 1;
         }
 
 
         // ----------------------------------------------------
-        // Agrupar archivos en pares
+        // Agrupar _1 y _2
         // ----------------------------------------------------
 
         std::map<
@@ -959,8 +1424,10 @@ int main() {
         > pares;
 
 
-        for (const auto& archivo :
-             archivos) {
+        for (
+            const auto& archivo :
+            archivos
+        ) {
 
             const ClaveCaso clave =
                 clave_de(
@@ -968,12 +1435,18 @@ int main() {
                 );
 
 
-            if (archivo.meta.lado == "1") {
+            if (
+                archivo.meta.lado ==
+                "1"
+            ) {
 
                 pares[clave].first =
                     archivo.ruta;
             }
-            else {
+            else if (
+                archivo.meta.lado ==
+                "2"
+            ) {
 
                 pares[clave].second =
                     archivo.ruta;
@@ -984,19 +1457,23 @@ int main() {
         std::cout
             << "Casos detectados: "
             << pares.size()
-            << "\n\n";
+            << '\n';
 
 
         // ----------------------------------------------------
-        // Procesar cada caso
+        // Contadores
         // ----------------------------------------------------
 
         std::size_t casos_procesados = 0;
 
-        std::size_t mediciones_realizadas = 0;
-
         std::size_t casos_omitidos = 0;
 
+        std::size_t mediciones_realizadas = 0;
+
+
+        // ====================================================
+        // Procesar casos
+        // ====================================================
 
         for (
             const auto& [clave, par] :
@@ -1004,13 +1481,15 @@ int main() {
         ) {
 
             const std::string nombre_caso =
-                std::to_string(clave.n) +
-                "_" +
-                clave.tipo +
-                "_" +
-                clave.dominio +
-                "_" +
-                clave.muestra;
+                std::to_string(
+                    clave.n
+                )
+                + "_"
+                + clave.tipo
+                + "_"
+                + clave.dominio
+                + "_"
+                + clave.muestra;
 
 
             // ------------------------------------------------
@@ -1032,7 +1511,7 @@ int main() {
 
 
             // ------------------------------------------------
-            // Aplicar límite experimental
+            // Límite experimental
             // ------------------------------------------------
 
             if (
@@ -1044,9 +1523,11 @@ int main() {
 
 
                 std::cout
-                    << "["
-                    << (casos_procesados +
-                        casos_omitidos)
+                    << "[" 
+                    << (
+                        casos_procesados +
+                        casos_omitidos
+                    )
                     << "/"
                     << pares.size()
                     << "] "
@@ -1054,8 +1535,6 @@ int main() {
                     << " -> OMITIDO"
                     << " (n="
                     << clave.n
-                    << " > "
-                    << MAX_MATRIX_N
                     << ")\n";
 
 
@@ -1080,69 +1559,32 @@ int main() {
             // Leer matrices
             // ------------------------------------------------
 
-            Matriz A =
+            const Matriz A =
                 leer_matriz(
                     par.first,
                     clave.n
                 );
 
 
-            Matriz B =
+            const Matriz B =
                 leer_matriz(
                     par.second,
                     clave.n
                 );
 
 
-            // ------------------------------------------------
-            // Naive de referencia
+            // =================================================
+            // NAIVE
             //
-            // Se calcula fuera de las mediciones.
-            //
-            // Sirve para comprobar que tanto Naive como
-            // Strassen producen el resultado correcto.
-            // ------------------------------------------------
-
-            std::cout
-                << "    Calculando referencia naive... ";
-
-
-            const auto inicio_referencia =
-                Reloj::now();
-
-
-            const Matriz referencia =
-                naiveMultiply(
-                    A,
-                    B
-                );
-
-
-            const auto fin_referencia =
-                Reloj::now();
-
-
-            const double tiempo_referencia =
-                std::chrono::duration<double, std::milli>(
-                    fin_referencia -
-                    inicio_referencia
-                ).count();
-
-
-            std::cout
-                << tiempo_referencia
-                << " ms\n";
-
-
-            // ------------------------------------------------
-            // Medir Naive
-            // ------------------------------------------------
+            // Su resultado será la referencia para validar
+            // Strassen.
+            // =================================================
 
             std::cout
                 << "    Ejecutando naive... ";
 
 
-            const Medicion m1 =
+            const Medicion medicion_naive =
                 medir_algoritmo(
 
                     nombre_caso,
@@ -1157,21 +1599,28 @@ int main() {
 
                     naiveMultiply,
 
-                    referencia,
+                    nullptr,
 
                     CARPETA_SALIDA
                 );
 
 
             std::cout
-                << m1.tiempo_ms
-                << " ms";
+                << medicion_naive.tiempo_ms
+                << " ms, "
+                << medicion_naive.memoria_kb
+                << " KB";
 
 
-            if (m1.resultado_correcto) {
-                std::cout << " [OK]";
+            if (
+                medicion_naive.resultado_correcto
+            ) {
+
+                std::cout
+                    << " [OK]";
             }
             else {
+
                 std::cout
                     << " [ERROR]";
             }
@@ -1182,7 +1631,7 @@ int main() {
 
             escribir_medicion_csv(
                 csv,
-                m1
+                medicion_naive
             );
 
 
@@ -1193,14 +1642,30 @@ int main() {
 
 
             // ------------------------------------------------
-            // Medir Strassen
+            // Leer nuevamente el resultado Naive desde el
+            // archivo para utilizarlo como referencia.
+            //
+            // Esto evita ejecutar Naive una segunda vez.
             // ------------------------------------------------
+
+            const Matriz referencia =
+                leer_matriz(
+                    fs::path(
+                        medicion_naive.archivo_salida
+                    ),
+                    clave.n
+                );
+
+
+            // =================================================
+            // STRASSEN
+            // =================================================
 
             std::cout
                 << "    Ejecutando strassen... ";
 
 
-            const Medicion m2 =
+            const Medicion medicion_strassen =
                 medir_algoritmo(
 
                     nombre_caso,
@@ -1215,21 +1680,28 @@ int main() {
 
                     strassen,
 
-                    referencia,
+                    &referencia,
 
                     CARPETA_SALIDA
                 );
 
 
             std::cout
-                << m2.tiempo_ms
-                << " ms";
+                << medicion_strassen.tiempo_ms
+                << " ms, "
+                << medicion_strassen.memoria_kb
+                << " KB";
 
 
-            if (m2.resultado_correcto) {
-                std::cout << " [OK]";
+            if (
+                medicion_strassen.resultado_correcto
+            ) {
+
+                std::cout
+                    << " [OK]";
             }
             else {
+
                 std::cout
                     << " [ERROR]";
             }
@@ -1240,7 +1712,7 @@ int main() {
 
             escribir_medicion_csv(
                 csv,
-                m2
+                medicion_strassen
             );
 
 
@@ -1254,13 +1726,13 @@ int main() {
         }
 
 
-        // ----------------------------------------------------
-        // Resumen
-        // ----------------------------------------------------
+        // ====================================================
+        // RESUMEN
+        // ====================================================
 
         std::cout
             << "========================================\n"
-            << "              FINALIZADO\n"
+            << "                FINALIZADO\n"
             << "========================================\n"
             << "Casos procesados: "
             << casos_procesados
@@ -1279,7 +1751,9 @@ int main() {
         return 0;
     }
 
-    catch (const std::exception& e) {
+    catch (
+        const std::exception& e
+    ) {
 
         std::cerr
             << "ERROR: "

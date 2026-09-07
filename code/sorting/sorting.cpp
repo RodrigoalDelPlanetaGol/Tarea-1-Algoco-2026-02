@@ -1,41 +1,43 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <functional>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <psapi.h>
 #elif defined(__linux__)
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 // ============================================================
 // sorting.cpp
 //
 // Programa principal para realizar las mediciones experimentales
-// de los algoritmos de ordenamiento:
+// de:
 //
 //   - Merge Sort
 //   - Quick Sort
 //   - Patience Sort
 //   - std::sort
 //
-// Flujo:
+// Cada algoritmo recibe una copia independiente del arreglo.
 //
-//   1) Lee los archivos de data/array_input/
-//   2) Extrae los metadatos desde el nombre del archivo
-//   3) Ejecuta cada algoritmo sobre una copia del mismo arreglo
-//   4) Mide tiempo y memoria
-//   5) Verifica que el resultado esté correctamente ordenado
-//   6) Guarda los arreglos ordenados en data/array_output/
-//   7) Guarda las mediciones en data/measurements/
+// En Linux, cada ejecución se realiza en un proceso hijo
+// independiente. Esto permite obtener el pico de memoria
+// alcanzado por esa ejecución mediante ru_maxrss, evitando que
+// las ejecuciones anteriores contaminen la medición.
+//
 // ============================================================
 
 namespace fs = std::filesystem;
@@ -43,28 +45,45 @@ namespace fs = std::filesystem;
 using Arreglo = std::vector<int>;
 using Reloj = std::chrono::high_resolution_clock;
 
-// ------------------------------------------------------------
+
+// ============================================================
+// Límite para Quick Sort
+//
+// Los casos con n > 1.000.000 se omiten para Quick Sort.
+// En los datos actuales esto significa omitir n = 10^7.
+// ============================================================
+
+static const std::size_t QUICK_SORT_MAX_N = 1'000'000;
+
+
+// ============================================================
 // Declaraciones de los algoritmos
-// ------------------------------------------------------------
-//
-// Estas funciones están implementadas en:
-//
-//   algorithms/mergesort.cpp
-//   algorithms/quicksort.cpp
-//   algorithms/patiencesort.cpp
-//   algorithms/sort.cpp
-//
-// ------------------------------------------------------------
+// ============================================================
 
-void mergeSort(Arreglo& arr, int left, int right);
-void quickSort(Arreglo& arr, int low, int high);
-void patienceSort(Arreglo& arr);
-std::vector<int> sortArray(std::vector<int>& arr);
+void mergeSort(
+    Arreglo& arr,
+    int left,
+    int right
+);
+
+void quickSort(
+    Arreglo& arr,
+    int low,
+    int high
+);
+
+void patienceSort(
+    Arreglo& arr
+);
+
+std::vector<int> sortArray(
+    std::vector<int>& arr
+);
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Rutas
-// ------------------------------------------------------------
+// ============================================================
 
 static const fs::path BASE_DIR = fs::path("data");
 
@@ -80,27 +99,18 @@ static const fs::path CARPETA_MEDICIONES =
 static const fs::path ARCHIVO_CSV =
     CARPETA_MEDICIONES / "sorting_measurements.csv";
 
-// Quick Sort no se mide para arreglos extremadamente grandes,
-// debido al tiempo de ejecución observado en estos casos.
-static const std::size_t QUICK_SORT_MAX_N = 1'000'000;
-// ------------------------------------------------------------
-// Metadatos del archivo
+
+// ============================================================
+// Metadatos
 //
 // Formato:
 //
-//   {n}_{t}_{d}_{m}.txt
+//   {n}_{tipo}_{dominio}_{muestra}.txt
 //
 // Ejemplo:
 //
-//   1000_ascendente_D1_a.txt
-//
-// Donde:
-//
-//   n = cantidad de elementos
-//   t = tipo de arreglo
-//   d = dominio
-//   m = muestra
-// ------------------------------------------------------------
+//   1000_aleatorio_D1_a.txt
+// ============================================================
 
 struct MetadatosArchivo {
 
@@ -114,9 +124,9 @@ struct MetadatosArchivo {
 };
 
 
-// ------------------------------------------------------------
+// ============================================================
 // Resultado de una medición
-// ------------------------------------------------------------
+// ============================================================
 
 struct Medicion {
 
@@ -144,9 +154,23 @@ struct Medicion {
 };
 
 
-// ------------------------------------------------------------
-// Extraer metadatos desde el nombre del archivo
-// ------------------------------------------------------------
+// ============================================================
+// Resultado devuelto por una ejecución experimental
+// ============================================================
+
+struct ResultadoEjecucion {
+
+    Arreglo arreglo_ordenado;
+
+    long long tiempo_us = 0;
+
+    long long memoria_kb = -1;
+};
+
+
+// ============================================================
+// Extraer metadatos
+// ============================================================
 
 static MetadatosArchivo extraer_metadatos(
     const fs::path& ruta
@@ -154,20 +178,8 @@ static MetadatosArchivo extraer_metadatos(
 
     MetadatosArchivo meta;
 
-    const std::string base = ruta.stem().string();
-
-    /*
-     * Ejemplo:
-     *
-     * 1000_ascendente_D1_a
-     *
-     * grupos:
-     *
-     * 1 -> 1000
-     * 2 -> ascendente
-     * 3 -> D1
-     * 4 -> a
-     */
+    const std::string base =
+        ruta.stem().string();
 
     const std::regex patron(
         R"(^([0-9]+)_([^_]+)_(D[0-9]+)_([a-zA-Z])$)"
@@ -175,11 +187,19 @@ static MetadatosArchivo extraer_metadatos(
 
     std::smatch coincidencia;
 
-    if (std::regex_match(base, coincidencia, patron)) {
+    if (
+        std::regex_match(
+            base,
+            coincidencia,
+            patron
+        )
+    ) {
 
         meta.n =
             static_cast<std::size_t>(
-                std::stoull(coincidencia[1].str())
+                std::stoull(
+                    coincidencia[1].str()
+                )
             );
 
         meta.tipo =
@@ -196,12 +216,9 @@ static MetadatosArchivo extraer_metadatos(
 }
 
 
-// ------------------------------------------------------------
-// Leer arreglo desde archivo
-//
-// Los archivos generados por array_generator.py contienen los
-// elementos del arreglo separados por espacios.
-// ------------------------------------------------------------
+// ============================================================
+// Leer arreglo
+// ============================================================
 
 static Arreglo leer_arreglo(
     const fs::path& ruta
@@ -232,9 +249,9 @@ static Arreglo leer_arreglo(
 }
 
 
-// ------------------------------------------------------------
-// Escribir arreglo ordenado
-// ------------------------------------------------------------
+// ============================================================
+// Escribir arreglo
+// ============================================================
 
 static void escribir_arreglo(
     const fs::path& ruta,
@@ -254,13 +271,19 @@ static void escribir_arreglo(
         );
     }
 
-    for (std::size_t i = 0;
-         i < arreglo.size();
-         ++i) {
+    for (
+        std::size_t i = 0;
+        i < arreglo.size();
+        ++i
+    ) {
 
         salida << arreglo[i];
 
-        if (i + 1 < arreglo.size()) {
+        if (
+            i + 1 <
+            arreglo.size()
+        ) {
+
             salida << ' ';
         }
     }
@@ -269,13 +292,483 @@ static void escribir_arreglo(
 }
 
 
-// ------------------------------------------------------------
-// Medición de memoria
-// ------------------------------------------------------------
+// ============================================================
+// Verificación
+// ============================================================
+
+static bool arreglo_ordenado(
+    const Arreglo& arreglo
+) {
+
+    return std::is_sorted(
+        arreglo.begin(),
+        arreglo.end()
+    );
+}
+
+
+// ============================================================
+// Wrappers
+//
+// Uniformamos las interfaces de los cuatro algoritmos.
+// ============================================================
+
+static void ejecutar_merge(
+    Arreglo& arreglo
+) {
+
+    if (!arreglo.empty()) {
+
+        mergeSort(
+            arreglo,
+            0,
+            static_cast<int>(
+                arreglo.size()
+            ) - 1
+        );
+    }
+}
+
+
+static void ejecutar_quick(
+    Arreglo& arreglo
+) {
+
+    if (!arreglo.empty()) {
+
+        quickSort(
+            arreglo,
+            0,
+            static_cast<int>(
+                arreglo.size()
+            ) - 1
+        );
+    }
+}
+
+
+static void ejecutar_patience(
+    Arreglo& arreglo
+) {
+
+    patienceSort(arreglo);
+}
+
+
+static void ejecutar_stdsort(
+    Arreglo& arreglo
+) {
+
+    sortArray(arreglo);
+}
+
+
+// ============================================================
+// LINUX
+//
+// Funciones auxiliares para comunicación entre procesos.
+// ============================================================
+
+#ifdef __linux__
+
+static void escribir_todo(
+    int fd,
+    const void* buffer,
+    std::size_t cantidad
+) {
+
+    const char* datos =
+        static_cast<const char*>(buffer);
+
+    std::size_t enviados = 0;
+
+    while (enviados < cantidad) {
+
+        const ssize_t resultado =
+            write(
+                fd,
+                datos + enviados,
+                cantidad - enviados
+            );
+
+        if (resultado <= 0) {
+
+            throw std::runtime_error(
+                "Error escribiendo en pipe."
+            );
+        }
+
+        enviados +=
+            static_cast<std::size_t>(
+                resultado
+            );
+    }
+}
+
+
+static void leer_todo(
+    int fd,
+    void* buffer,
+    std::size_t cantidad
+) {
+
+    char* datos =
+        static_cast<char*>(buffer);
+
+    std::size_t recibidos = 0;
+
+    while (recibidos < cantidad) {
+
+        const ssize_t resultado =
+            read(
+                fd,
+                datos + recibidos,
+                cantidad - recibidos
+            );
+
+        if (resultado <= 0) {
+
+            throw std::runtime_error(
+                "Error leyendo desde pipe."
+            );
+        }
+
+        recibidos +=
+            static_cast<std::size_t>(
+                resultado
+            );
+    }
+}
+
+#endif
+
+
+// ============================================================
+// Ejecutar algoritmo en proceso independiente
+//
+// En Linux:
+//
+//   Padre
+//      |
+//      +--- fork()
+//              |
+//              +--- Hijo
+//                     |
+//                     +--- ejecutar algoritmo
+//                     +--- medir tiempo
+//                     +--- devolver resultado
+//              |
+//              +--- wait4()
+//                     |
+//                     +--- obtener ru_maxrss
+//
+// ru_maxrss del hijo representa el pico de memoria residente
+// alcanzado por ESA ejecución.
+// ============================================================
+
+static ResultadoEjecucion ejecutar_experimentalmente(
+
+    const Arreglo& entrada,
+
+    const std::function<void(Arreglo&)>& funcion
+
+) {
+
+#ifdef __linux__
+
+    int pipe_resultado[2];
+
+    if (
+        pipe(pipe_resultado) != 0
+    ) {
+
+        throw std::runtime_error(
+            "No se pudo crear el pipe."
+        );
+    }
+
+
+    const pid_t pid =
+        fork();
+
+
+    if (pid < 0) {
+
+        close(pipe_resultado[0]);
+        close(pipe_resultado[1]);
+
+        throw std::runtime_error(
+            "No se pudo crear el proceso hijo."
+        );
+    }
+
+
+    // ========================================================
+    // HIJO
+    // ========================================================
+
+    if (pid == 0) {
+
+        close(
+            pipe_resultado[0]
+        );
+
+
+        try {
+
+            // -----------------------------------------------
+            // La copia se realiza antes de medir el tiempo.
+            //
+            // Todos los algoritmos reciben exactamente la
+            // misma entrada.
+            // -----------------------------------------------
+
+            Arreglo trabajo =
+                entrada;
+
+
+            // -----------------------------------------------
+            // Tiempo
+            // -----------------------------------------------
+
+            const auto inicio =
+                Reloj::now();
+
+
+            funcion(trabajo);
+
+
+            const auto fin =
+                Reloj::now();
+
+
+            const long long tiempo_us =
+                std::chrono::duration_cast<
+                    std::chrono::microseconds
+                >(
+                    fin - inicio
+                ).count();
+
+
+            // -----------------------------------------------
+            // Enviamos primero el tamaño y el tiempo.
+            // -----------------------------------------------
+
+            const std::uint64_t tamano =
+                static_cast<std::uint64_t>(
+                    trabajo.size()
+                );
+
+
+            escribir_todo(
+                pipe_resultado[1],
+                &tamano,
+                sizeof(tamano)
+            );
+
+
+            escribir_todo(
+                pipe_resultado[1],
+                &tiempo_us,
+                sizeof(tiempo_us)
+            );
+
+
+            // -----------------------------------------------
+            // Enviamos el resultado.
+            //
+            // Esto ocurre DESPUÉS de detener el cronómetro.
+            // -----------------------------------------------
+
+            if (tamano > 0) {
+
+                escribir_todo(
+                    pipe_resultado[1],
+                    trabajo.data(),
+                    trabajo.size() *
+                    sizeof(int)
+                );
+            }
+
+
+            close(
+                pipe_resultado[1]
+            );
+
+
+            // Finalización normal
+            _exit(0);
+        }
+
+        catch (...) {
+
+            close(
+                pipe_resultado[1]
+            );
+
+            _exit(1);
+        }
+    }
+
+
+    // ========================================================
+    // PADRE
+    // ========================================================
+
+    close(
+        pipe_resultado[1]
+    );
+
+
+    // -----------------------------------------------
+    // Leer tamaño
+    // -----------------------------------------------
+
+    std::uint64_t tamano = 0;
+
+    leer_todo(
+        pipe_resultado[0],
+        &tamano,
+        sizeof(tamano)
+    );
+
+
+    // -----------------------------------------------
+    // Leer tiempo
+    // -----------------------------------------------
+
+    long long tiempo_us = 0;
+
+    leer_todo(
+        pipe_resultado[0],
+        &tiempo_us,
+        sizeof(tiempo_us)
+    );
+
+
+    // -----------------------------------------------
+    // Leer resultado
+    // -----------------------------------------------
+
+    Arreglo resultado(
+        static_cast<std::size_t>(
+            tamano
+        )
+    );
+
+
+    if (tamano > 0) {
+
+        leer_todo(
+            pipe_resultado[0],
+            resultado.data(),
+            resultado.size() *
+            sizeof(int)
+        );
+    }
+
+
+    close(
+        pipe_resultado[0]
+    );
+
+
+    // -----------------------------------------------
+    // Esperar al hijo y obtener sus estadísticas.
+    // -----------------------------------------------
+
+    int estado = 0;
+
+    struct rusage uso{};
+
+    const pid_t terminado =
+        wait4(
+            pid,
+            &estado,
+            0,
+            &uso
+        );
+
+
+    if (terminado < 0) {
+
+        throw std::runtime_error(
+            "Error esperando al proceso hijo."
+        );
+    }
+
+
+    if (
+        !WIFEXITED(estado) ||
+        WEXITSTATUS(estado) != 0
+    ) {
+
+        throw std::runtime_error(
+            "El proceso hijo terminó con error."
+        );
+    }
+
+
+    ResultadoEjecucion resultado_ejecucion;
+
+    resultado_ejecucion.arreglo_ordenado =
+        std::move(resultado);
+
+    resultado_ejecucion.tiempo_us =
+        tiempo_us;
+
+
+    // Linux entrega ru_maxrss en KB.
+
+    resultado_ejecucion.memoria_kb =
+        static_cast<long long>(
+            uso.ru_maxrss
+        );
+
+
+    return resultado_ejecucion;
+
+
+#else
+
+    // ========================================================
+    // WINDOWS / OTROS
+    //
+    // Fallback multiplataforma.
+    //
+    // Para las mediciones finales utilizaremos Linux.
+    // ========================================================
+
+    Arreglo trabajo =
+        entrada;
+
+
+    const auto inicio =
+        Reloj::now();
+
+
+    funcion(trabajo);
+
+
+    const auto fin =
+        Reloj::now();
+
+
+    ResultadoEjecucion resultado;
+
+    resultado.arreglo_ordenado =
+        std::move(trabajo);
+
+
+    resultado.tiempo_us =
+        std::chrono::duration_cast<
+            std::chrono::microseconds
+        >(
+            fin - inicio
+        ).count();
+
 
 #ifdef _WIN32
-
-static long long memoria_actual_kb() {
 
     PROCESS_MEMORY_COUNTERS_EX info{};
 
@@ -289,91 +782,25 @@ static long long memoria_actual_kb() {
         )
     ) {
 
-        return static_cast<long long>(
-            info.WorkingSetSize / 1024ULL
-        );
+        resultado.memoria_kb =
+            static_cast<long long>(
+                info.PeakWorkingSetSize /
+                1024ULL
+            );
     }
-
-    return -1;
-}
-
-#elif defined(__linux__)
-
-static long long memoria_actual_kb() {
-
-    struct rusage uso{};
-
-    if (getrusage(RUSAGE_SELF, &uso) == 0) {
-
-        return static_cast<long long>(
-            uso.ru_maxrss
-        );
-    }
-
-    return -1;
-}
-
-#else
-
-static long long memoria_actual_kb() {
-    return -1;
-}
 
 #endif
 
 
-// ------------------------------------------------------------
-// Funciones wrapper
-//
-// Todas reciben exactamente:
-//
-//     Arreglo&
-//
-// Esto permite utilizar el mismo mecanismo de medición para
-// los cuatro algoritmos.
-// ------------------------------------------------------------
+    return resultado;
 
-static void ejecutar_merge(Arreglo& arreglo) {
-
-    if (!arreglo.empty()) {
-
-        mergeSort(
-            arreglo,
-            0,
-            static_cast<int>(arreglo.size()) - 1
-        );
-    }
+#endif
 }
 
 
-static void ejecutar_quick(Arreglo& arreglo) {
-
-    if (!arreglo.empty()) {
-
-        quickSort(
-            arreglo,
-            0,
-            static_cast<int>(arreglo.size()) - 1
-        );
-    }
-}
-
-
-static void ejecutar_patience(Arreglo& arreglo) {
-
-    patienceSort(arreglo);
-}
-
-
-static void ejecutar_stdsort(Arreglo& arreglo) {
-
-    sortArray(arreglo);
-}
-
-
-// ------------------------------------------------------------
-// Medir un algoritmo
-// ------------------------------------------------------------
+// ============================================================
+// Medir algoritmo
+// ============================================================
 
 static Medicion medir_algoritmo(
 
@@ -385,141 +812,80 @@ static Medicion medir_algoritmo(
 
     const std::string& nombre_algoritmo,
 
-    const std::function<void(Arreglo&)>& funcion
+    const std::function<void(Arreglo&)>& funcion,
+
+    const fs::path& carpeta_salida
 
 ) {
 
-    // --------------------------------------------------------
-    // Trabajamos sobre una copia.
-    //
-    // Así todos los algoritmos reciben exactamente el mismo
-    // arreglo original.
-    // --------------------------------------------------------
+    const ResultadoEjecucion ejecucion =
+        ejecutar_experimentalmente(
+            entrada,
+            funcion
+        );
 
-    Arreglo trabajo = entrada;
-
-
-    // --------------------------------------------------------
-    // Medición de memoria previa
-    // --------------------------------------------------------
-
-    const long long memoria_antes =
-        memoria_actual_kb();
-
-
-    // --------------------------------------------------------
-    // Inicio de medición
-    // --------------------------------------------------------
-
-    const auto inicio =
-        Reloj::now();
-
-
-    // --------------------------------------------------------
-    // EJECUCIÓN DEL ALGORITMO
-    // --------------------------------------------------------
-
-    funcion(trabajo);
-
-
-    // --------------------------------------------------------
-    // Fin de medición
-    // --------------------------------------------------------
-
-    const auto fin =
-        Reloj::now();
-
-
-    // --------------------------------------------------------
-    // Memoria posterior
-    // --------------------------------------------------------
-
-    const long long memoria_despues =
-        memoria_actual_kb();
-
-
-    // --------------------------------------------------------
-    // Construir resultado
-    // --------------------------------------------------------
 
     Medicion medicion;
+
 
     medicion.archivo_entrada =
         nombre_archivo;
 
+
     medicion.algoritmo =
         nombre_algoritmo;
+
 
     medicion.n =
         entrada.size();
 
+
     medicion.tipo =
         meta.tipo;
 
+
     medicion.dominio =
         meta.dominio;
+
 
     medicion.muestra =
         meta.muestra;
 
 
-    // Tiempo en microsegundos
-
     medicion.tiempo_us =
-        std::chrono::duration_cast<
-            std::chrono::microseconds
-        >(fin - inicio).count();
+        ejecucion.tiempo_us;
 
-
-    // Tiempo en milisegundos
 
     medicion.tiempo_ms =
-        std::chrono::duration<double, std::milli>(
-            fin - inicio
-        ).count();
+        static_cast<double>(
+            ejecucion.tiempo_us
+        ) / 1000.0;
 
 
-    // --------------------------------------------------------
-    // Memoria
-    // --------------------------------------------------------
+    medicion.memoria_kb =
+        ejecucion.memoria_kb;
 
-    if (
-        memoria_antes >= 0 &&
-        memoria_despues >= 0
-    ) {
-
-        medicion.memoria_kb =
-            std::max(
-                0LL,
-                memoria_despues - memoria_antes
-            );
-    }
-
-
-    // --------------------------------------------------------
-    // Verificar que el algoritmo realmente ordenó
-    // --------------------------------------------------------
 
     medicion.resultado_correcto =
-        std::is_sorted(
-            trabajo.begin(),
-            trabajo.end()
+        arreglo_ordenado(
+            ejecucion.arreglo_ordenado
         );
 
 
     // --------------------------------------------------------
-    // Nombre del archivo de salida
+    // Guardar resultado
     //
-    // Ejemplo:
-    //
-    // 1000_ascendente_D1_a_merge.txt
+    // Esto se realiza fuera de la medición.
     // --------------------------------------------------------
 
     const std::string base =
-        fs::path(nombre_archivo).stem().string();
+        fs::path(
+            nombre_archivo
+        ).stem().string();
+
 
     const fs::path archivo_salida =
-        CARPETA_SALIDA /
+        carpeta_salida /
         (
             base +
             "_" +
@@ -528,11 +894,9 @@ static Medicion medir_algoritmo(
         );
 
 
-    // La escritura NO forma parte de la medición
-
     escribir_arreglo(
         archivo_salida,
-        trabajo
+        ejecucion.arreglo_ordenado
     );
 
 
@@ -544,9 +908,9 @@ static Medicion medir_algoritmo(
 }
 
 
-// ------------------------------------------------------------
-// Escribir encabezado CSV
-// ------------------------------------------------------------
+// ============================================================
+// CSV
+// ============================================================
 
 static void escribir_encabezado_csv(
     std::ofstream& salida
@@ -567,35 +931,35 @@ static void escribir_encabezado_csv(
 }
 
 
-// ------------------------------------------------------------
-// Escribir medición
-// ------------------------------------------------------------
-
 static void escribir_medicion_csv(
     std::ofstream& salida,
-    const Medicion& m
+    const Medicion& medicion
 ) {
 
     salida
-        << m.archivo_entrada << ','
-        << m.algoritmo << ','
-        << m.n << ','
-        << m.tipo << ','
-        << m.dominio << ','
-        << m.muestra << ','
-        << m.tiempo_us << ','
-        << m.tiempo_ms << ','
-        << m.memoria_kb << ','
-        << (m.resultado_correcto ? "true" : "false")
+        << medicion.archivo_entrada << ','
+        << medicion.algoritmo << ','
+        << medicion.n << ','
+        << medicion.tipo << ','
+        << medicion.dominio << ','
+        << medicion.muestra << ','
+        << medicion.tiempo_us << ','
+        << medicion.tiempo_ms << ','
+        << medicion.memoria_kb << ','
+        << (
+            medicion.resultado_correcto
+                ? "true"
+                : "false"
+        )
         << ','
-        << m.archivo_salida
+        << medicion.archivo_salida
         << '\n';
 }
 
 
-// ------------------------------------------------------------
-// Listar archivos .txt
-// ------------------------------------------------------------
+// ============================================================
+// Listar archivos
+// ============================================================
 
 static std::vector<fs::path> listar_archivos(
     const fs::path& carpeta
@@ -613,16 +977,23 @@ static std::vector<fs::path> listar_archivos(
     std::vector<fs::path> archivos;
 
 
-    for (const auto& entrada :
-         fs::directory_iterator(carpeta)) {
+    for (
+        const auto& entrada :
+        fs::directory_iterator(carpeta)
+    ) {
 
         if (!entrada.is_regular_file()) {
             continue;
         }
 
-        if (entrada.path().extension() != ".txt") {
+
+        if (
+            entrada.path().extension()
+            != ".txt"
+        ) {
             continue;
         }
+
 
         archivos.push_back(
             entrada.path()
@@ -630,13 +1001,14 @@ static std::vector<fs::path> listar_archivos(
     }
 
 
-    // Ordenar archivos por n y luego por nombre
-
     std::sort(
         archivos.begin(),
         archivos.end(),
 
-        [](const fs::path& a, const fs::path& b) {
+        [](
+            const fs::path& a,
+            const fs::path& b
+        ) {
 
             const auto meta_a =
                 extraer_metadatos(a);
@@ -645,9 +1017,14 @@ static std::vector<fs::path> listar_archivos(
                 extraer_metadatos(b);
 
 
-            if (meta_a.n != meta_b.n) {
+            if (
+                meta_a.n !=
+                meta_b.n
+            ) {
 
-                return meta_a.n < meta_b.n;
+                return
+                    meta_a.n <
+                    meta_b.n;
             }
 
 
@@ -662,22 +1039,39 @@ static std::vector<fs::path> listar_archivos(
 }
 
 
-// ------------------------------------------------------------
+// ============================================================
 // MAIN
-// ------------------------------------------------------------
+// ============================================================
 
 int main() {
 
     try {
 
         std::cout
-            << "=====================================\n"
-            << "   MEDICIONES - SORTING\n"
-            << "=====================================\n\n";
+            << "========================================\n"
+            << "       MEDICIONES EXPERIMENTALES\n"
+            << "                SORTING\n"
+            << "========================================\n\n";
+
+
+#ifdef __linux__
+
+        std::cout
+            << "Plataforma de medicion: Linux\n"
+            << "Memoria: pico RSS por proceso hijo\n\n";
+
+#elif defined(_WIN32)
+
+        std::cout
+            << "Plataforma: Windows\n"
+            << "ADVERTENCIA: las mediciones definitivas de "
+               "memoria deben realizarse en Linux.\n\n";
+
+#endif
 
 
         // ----------------------------------------------------
-        // Crear carpetas de salida
+        // Crear carpetas
         // ----------------------------------------------------
 
         fs::create_directories(
@@ -699,6 +1093,7 @@ int main() {
             std::ios::trunc
         );
 
+
         if (!csv) {
 
             throw std::runtime_error(
@@ -708,7 +1103,9 @@ int main() {
         }
 
 
-        escribir_encabezado_csv(csv);
+        escribir_encabezado_csv(
+            csv
+        );
 
 
         // ----------------------------------------------------
@@ -737,7 +1134,7 @@ int main() {
 
 
         // ----------------------------------------------------
-        // Tabla de algoritmos
+        // Algoritmos
         // ----------------------------------------------------
 
         struct Algoritmo {
@@ -773,17 +1170,20 @@ int main() {
 
 
         // ----------------------------------------------------
-        // Procesar archivos
+        // Procesar
         // ----------------------------------------------------
 
         std::size_t archivos_procesados = 0;
 
         std::size_t mediciones_realizadas = 0;
 
+        std::size_t ejecuciones_omitidas = 0;
 
-        for (const auto& ruta :
-             archivos) {
 
+        for (
+            const auto& ruta :
+            archivos
+        ) {
 
             const std::string nombre_archivo =
                 ruta.filename().string();
@@ -793,24 +1193,16 @@ int main() {
                 extraer_metadatos(ruta);
 
 
-            // ------------------------------------------------
-            // Validar metadatos
-            // ------------------------------------------------
-
             if (meta.n == 0) {
 
                 std::cerr
                     << "[WARN] Nombre no reconocido: "
                     << nombre_archivo
-                    << "\n";
+                    << '\n';
 
                 continue;
             }
 
-
-            // ------------------------------------------------
-            // Leer arreglo
-            // ------------------------------------------------
 
             Arreglo arreglo =
                 leer_arreglo(ruta);
@@ -821,13 +1213,16 @@ int main() {
                 std::cerr
                     << "[WARN] Archivo vacío: "
                     << nombre_archivo
-                    << "\n";
+                    << '\n';
 
                 continue;
             }
 
 
-            if (arreglo.size() != meta.n) {
+            if (
+                arreglo.size() !=
+                meta.n
+            ) {
 
                 std::cerr
                     << "[WARN] Tamaño inconsistente en "
@@ -836,13 +1231,16 @@ int main() {
                     << meta.n
                     << ", datos="
                     << arreglo.size()
-                    << "\n";
+                    << '\n';
             }
+
+
+            ++archivos_procesados;
 
 
             std::cout
                 << "["
-                << (++archivos_procesados)
+                << archivos_procesados
                 << "/"
                 << archivos.size()
                 << "] "
@@ -853,26 +1251,42 @@ int main() {
 
 
             // ------------------------------------------------
-            // Ejecutar los cuatro algoritmos
+            // Cuatro algoritmos
             // ------------------------------------------------
 
-            for (const auto& algoritmo :
-                 algoritmos) {
+            for (
+                const auto& algoritmo :
+                algoritmos
+            ) {
 
-            // --------------------------------------------------------
-            // Quick Sort: omitir tamaños extremadamente grandes
-            // --------------------------------------------------------
 
-            if(
-                algoritmo.nombre == "quick" &&
-                arreglo.size() > QUICK_SORT_MAX_N
-            ){
-                std::cout     
-                    << " Omitiendo quick sort para ="
-                    << arreglo.size()
-                    << " (tiempo de ejecución excesivo esperado)\n";
-                continue;
-            }
+                // --------------------------------------------
+                // Límite de Quick Sort
+                // --------------------------------------------
+
+                if (
+                    algoritmo.nombre == "quick" &&
+                    arreglo.size() >
+                    QUICK_SORT_MAX_N
+                ) {
+
+                    ++ejecuciones_omitidas;
+
+
+                    std::cout
+                        << "    "
+                        << algoritmo.nombre
+                        << " -> OMITIDO"
+                        << " (n="
+                        << arreglo.size()
+                        << " > "
+                        << QUICK_SORT_MAX_N
+                        << ")\n";
+
+
+                    continue;
+                }
+
 
                 std::cout
                     << "    Ejecutando "
@@ -891,7 +1305,9 @@ int main() {
 
                         algoritmo.nombre,
 
-                        algoritmo.funcion
+                        algoritmo.funcion,
+
+                        CARPETA_SALIDA
                     );
 
 
@@ -912,15 +1328,23 @@ int main() {
                     << " ms";
 
 
-                if (!medicion.resultado_correcto) {
+                std::cout
+                    << ", "
+                    << medicion.memoria_kb
+                    << " KB";
+
+
+                if (
+                    medicion.resultado_correcto
+                ) {
 
                     std::cout
-                        << " [ERROR: resultado incorrecto]";
+                        << " [OK]";
                 }
                 else {
 
                     std::cout
-                        << " [OK]";
+                        << " [ERROR]";
                 }
 
 
@@ -937,23 +1361,29 @@ int main() {
         // ----------------------------------------------------
 
         std::cout
-            << "=====================================\n"
-            << "           FINALIZADO\n"
-            << "=====================================\n"
+            << "========================================\n"
+            << "                FINALIZADO\n"
+            << "========================================\n"
             << "Archivos procesados: "
             << archivos_procesados
-            << "\n"
+            << '\n'
             << "Mediciones realizadas: "
             << mediciones_realizadas
-            << "\n"
-            << "CSV: "
+            << '\n'
+            << "Ejecuciones omitidas: "
+            << ejecuciones_omitidas
+            << '\n'
+            << "CSV generado: "
             << ARCHIVO_CSV.string()
-            << "\n";
+            << '\n';
+
 
         return 0;
 
     }
-    catch (const std::exception& e) {
+    catch (
+        const std::exception& e
+    ) {
 
         std::cerr
             << "ERROR: "
