@@ -33,10 +33,6 @@
 //
 // Cada algoritmo recibe una copia independiente del arreglo.
 //
-// En Linux, cada ejecución se realiza en un proceso hijo
-// independiente. Esto permite obtener el pico de memoria
-// alcanzado por esa ejecución mediante ru_maxrss, evitando que
-// las ejecuciones anteriores contaminen la medición.
 //
 // ============================================================
 
@@ -50,15 +46,11 @@ using Reloj = std::chrono::high_resolution_clock;
 // Límite para Quick Sort
 //
 // Los casos con n > 1.000.000 se omiten para Quick Sort.
-// En los datos actuales esto significa omitir n = 10^7.
 // ============================================================
 
 static const std::size_t QUICK_SORT_MAX_N = 1'000'000;
 
 
-// ============================================================
-// Declaraciones de los algoritmos
-// ============================================================
 
 void mergeSort(
     Arreglo& arr,
@@ -81,10 +73,6 @@ std::vector<int> sortArray(
 );
 
 
-// ============================================================
-// Rutas
-// ============================================================
-
 static const fs::path BASE_DIR = fs::path("data");
 
 static const fs::path CARPETA_ENTRADA =
@@ -100,17 +88,7 @@ static const fs::path ARCHIVO_CSV =
     CARPETA_MEDICIONES / "sorting_measurements.csv";
 
 
-// ============================================================
-// Metadatos
-//
-// Formato:
-//
-//   {n}_{tipo}_{dominio}_{muestra}.txt
-//
-// Ejemplo:
-//
-//   1000_aleatorio_D1_a.txt
-// ============================================================
+
 
 struct MetadatosArchivo {
 
@@ -124,9 +102,6 @@ struct MetadatosArchivo {
 };
 
 
-// ============================================================
-// Resultado de una medición
-// ============================================================
 
 struct Medicion {
 
@@ -154,9 +129,6 @@ struct Medicion {
 };
 
 
-// ============================================================
-// Resultado devuelto por una ejecución experimental
-// ============================================================
 
 struct ResultadoEjecucion {
 
@@ -168,9 +140,7 @@ struct ResultadoEjecucion {
 };
 
 
-// ============================================================
-// Extraer metadatos
-// ============================================================
+
 
 static MetadatosArchivo extraer_metadatos(
     const fs::path& ruta
@@ -216,9 +186,6 @@ static MetadatosArchivo extraer_metadatos(
 }
 
 
-// ============================================================
-// Leer arreglo
-// ============================================================
 
 static Arreglo leer_arreglo(
     const fs::path& ruta
@@ -249,9 +216,7 @@ static Arreglo leer_arreglo(
 }
 
 
-// ============================================================
-// Escribir arreglo
-// ============================================================
+
 
 static void escribir_arreglo(
     const fs::path& ruta,
@@ -292,9 +257,7 @@ static void escribir_arreglo(
 }
 
 
-// ============================================================
-// Verificación
-// ============================================================
+
 
 static bool arreglo_ordenado(
     const Arreglo& arreglo
@@ -307,11 +270,7 @@ static bool arreglo_ordenado(
 }
 
 
-// ============================================================
-// Wrappers
-//
-// Uniformamos las interfaces de los cuatro algoritmos.
-// ============================================================
+
 
 static void ejecutar_merge(
     Arreglo& arreglo
@@ -363,11 +322,7 @@ static void ejecutar_stdsort(
 }
 
 
-// ============================================================
-// LINUX
-//
-// Funciones auxiliares para comunicación entre procesos.
-// ============================================================
+
 
 #ifdef __linux__
 
@@ -443,29 +398,6 @@ static void leer_todo(
 #endif
 
 
-// ============================================================
-// Ejecutar algoritmo en proceso independiente
-//
-// En Linux:
-//
-//   Padre
-//      |
-//      +--- fork()
-//              |
-//              +--- Hijo
-//                     |
-//                     +--- ejecutar algoritmo
-//                     +--- medir tiempo
-//                     +--- devolver resultado
-//              |
-//              +--- wait4()
-//                     |
-//                     +--- obtener ru_maxrss
-//
-// ru_maxrss del hijo representa el pico de memoria residente
-// alcanzado por ESA ejecución.
-// ============================================================
-
 static ResultadoEjecucion ejecutar_experimentalmente(
 
     const Arreglo& entrada,
@@ -516,20 +448,13 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 
         try {
 
-            // -----------------------------------------------
-            // La copia se realiza antes de medir el tiempo.
-            //
-            // Todos los algoritmos reciben exactamente la
-            // misma entrada.
-            // -----------------------------------------------
+            
 
             Arreglo trabajo =
                 entrada;
 
 
-            // -----------------------------------------------
-            // Tiempo
-            // -----------------------------------------------
+            
 
             const auto inicio =
                 Reloj::now();
@@ -550,9 +475,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
                 ).count();
 
 
-            // -----------------------------------------------
-            // Enviamos primero el tamaño y el tiempo.
-            // -----------------------------------------------
+            
 
             const std::uint64_t tamano =
                 static_cast<std::uint64_t>(
@@ -574,11 +497,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
             );
 
 
-            // -----------------------------------------------
-            // Enviamos el resultado.
-            //
-            // Esto ocurre DESPUÉS de detener el cronómetro.
-            // -----------------------------------------------
+            
 
             if (tamano > 0) {
 
@@ -611,18 +530,14 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     }
 
 
-    // ========================================================
-    // PADRE
-    // ========================================================
+    
 
     close(
         pipe_resultado[1]
     );
 
 
-    // -----------------------------------------------
-    // Leer tamaño
-    // -----------------------------------------------
+    
 
     std::uint64_t tamano = 0;
 
@@ -633,9 +548,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // -----------------------------------------------
-    // Leer tiempo
-    // -----------------------------------------------
+    
 
     long long tiempo_us = 0;
 
@@ -646,9 +559,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // -----------------------------------------------
-    // Leer resultado
-    // -----------------------------------------------
+    -
 
     Arreglo resultado(
         static_cast<std::size_t>(
@@ -673,9 +584,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // -----------------------------------------------
-    // Esperar al hijo y obtener sus estadísticas.
-    // -----------------------------------------------
+    
 
     int estado = 0;
 
@@ -731,13 +640,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 
 #else
 
-    // ========================================================
-    // WINDOWS / OTROS
-    //
-    // Fallback multiplataforma.
-    //
-    // Para las mediciones finales utilizaremos Linux.
-    // ========================================================
+    
 
     Arreglo trabajo =
         entrada;
@@ -798,9 +701,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 }
 
 
-// ============================================================
-// Medir algoritmo
-// ============================================================
+
 
 static Medicion medir_algoritmo(
 
@@ -872,11 +773,7 @@ static Medicion medir_algoritmo(
         );
 
 
-    // --------------------------------------------------------
-    // Guardar resultado
-    //
-    // Esto se realiza fuera de la medición.
-    // --------------------------------------------------------
+   
 
     const std::string base =
         fs::path(
@@ -908,9 +805,7 @@ static Medicion medir_algoritmo(
 }
 
 
-// ============================================================
-// CSV
-// ============================================================
+
 
 static void escribir_encabezado_csv(
     std::ofstream& salida
@@ -957,9 +852,7 @@ static void escribir_medicion_csv(
 }
 
 
-// ============================================================
-// Listar archivos
-// ============================================================
+
 
 static std::vector<fs::path> listar_archivos(
     const fs::path& carpeta
@@ -1039,9 +932,7 @@ static std::vector<fs::path> listar_archivos(
 }
 
 
-// ============================================================
-// MAIN
-// ============================================================
+
 
 int main() {
 
@@ -1070,9 +961,7 @@ int main() {
 #endif
 
 
-        // ----------------------------------------------------
-        // Crear carpetas
-        // ----------------------------------------------------
+        
 
         fs::create_directories(
             CARPETA_SALIDA
@@ -1083,9 +972,7 @@ int main() {
         );
 
 
-        // ----------------------------------------------------
-        // Abrir CSV
-        // ----------------------------------------------------
+        
 
         std::ofstream csv(
             ARCHIVO_CSV,
@@ -1108,9 +995,7 @@ int main() {
         );
 
 
-        // ----------------------------------------------------
-        // Obtener archivos
-        // ----------------------------------------------------
+        
 
         const auto archivos =
             listar_archivos(
@@ -1133,9 +1018,7 @@ int main() {
         }
 
 
-        // ----------------------------------------------------
-        // Algoritmos
-        // ----------------------------------------------------
+        
 
         struct Algoritmo {
 
@@ -1169,9 +1052,7 @@ int main() {
         };
 
 
-        // ----------------------------------------------------
-        // Procesar
-        // ----------------------------------------------------
+        
 
         std::size_t archivos_procesados = 0;
 
@@ -1250,9 +1131,7 @@ int main() {
                 << ")\n";
 
 
-            // ------------------------------------------------
-            // Cuatro algoritmos
-            // ------------------------------------------------
+            
 
             for (
                 const auto& algoritmo :
@@ -1260,9 +1139,7 @@ int main() {
             ) {
 
 
-                // --------------------------------------------
-                // Límite de Quick Sort
-                // --------------------------------------------
+                
 
                 if (
                     algoritmo.nombre == "quick" &&
@@ -1356,9 +1233,7 @@ int main() {
         }
 
 
-        // ----------------------------------------------------
-        // Resumen
-        // ----------------------------------------------------
+        
 
         std::cout
             << "========================================\n"

@@ -4,24 +4,13 @@ import matplotlib.pyplot as plt
 
 
 # ============================================================
-# plot_generator.py - Sorting
 #
-# Lee:
-#   data/measurements/sorting_measurements.csv
-#
-# Genera:
-#   data/plots/
-#
-# Los gráficos muestran:
+# Los gráficos qeu se generan muestran:
 #   - tiempo vs tamaño
 #   - memoria vs tamaño
 #   - comparación por tipo de arreglo
 # ============================================================
 
-
-# ------------------------------------------------------------
-# Rutas
-# ------------------------------------------------------------
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -47,16 +36,10 @@ CSV_PATH = os.path.join(
 )
 
 
-# ------------------------------------------------------------
-# Crear carpeta de salida
-# ------------------------------------------------------------
 
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
-# ------------------------------------------------------------
-# Leer CSV
-# ------------------------------------------------------------
 
 if not os.path.exists(CSV_PATH):
     raise FileNotFoundError(
@@ -66,9 +49,6 @@ if not os.path.exists(CSV_PATH):
 df = pd.read_csv(CSV_PATH)
 
 
-# ------------------------------------------------------------
-# Validar columnas
-# ------------------------------------------------------------
 
 columnas_requeridas = {
     "algoritmo",
@@ -90,18 +70,12 @@ if faltantes:
     )
 
 
-# ------------------------------------------------------------
-# Convertir columnas
-# ------------------------------------------------------------
 
 df["n"] = pd.to_numeric(df["n"])
 df["tiempo_ms"] = pd.to_numeric(df["tiempo_ms"])
 df["memoria_kb"] = pd.to_numeric(df["memoria_kb"])
 
 
-# ------------------------------------------------------------
-# Comprobar resultados correctos
-# ------------------------------------------------------------
 
 incorrectos = df[
     df["resultado_correcto"].astype(str).str.lower() != "true"
@@ -115,9 +89,7 @@ if not incorrectos.empty:
     )
 
 
-# ============================================================
-# 1. TIEMPO VS N POR TIPO DE ARREGLO
-# ============================================================
+
 
 for tipo in sorted(df["tipo"].unique()):
 
@@ -178,9 +150,7 @@ for tipo in sorted(df["tipo"].unique()):
     plt.close()
 
 
-# ============================================================
-# 2. MEMORIA VS N POR TIPO DE ARREGLO
-# ============================================================
+
 
 for tipo in sorted(df["tipo"].unique()):
 
@@ -240,9 +210,7 @@ for tipo in sorted(df["tipo"].unique()):
     plt.close()
 
 
-# ============================================================
-# 3. TIEMPO POR TIPO DE ENTRADA
-# ============================================================
+
 
 for n in sorted(df["n"].unique()):
 

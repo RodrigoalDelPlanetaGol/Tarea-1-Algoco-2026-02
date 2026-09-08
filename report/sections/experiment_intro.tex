@@ -1,5 +1,13 @@
-\begin{mdframed}
-    \textbf{La extensión máxima para esta sección es de media página.}
-\end{mdframed}
+% experiment_intro.tex
+Para garantizar la reproducibilidad y el correcto análisis empírico de los tiempos de ejecución y la gestión de memoria, todos los experimentos fueron realizados en un entorno de ejecución unificado. Las especificaciones detalladas del hardware y software utilizado se listan a continuación:
 
-Especifique el hardware y software utilizado para realizar los experimentos (por ejemplo, procesador, memoria RAM, sistema operativo, compilador y versión). Incluya una mención breve de los datasets utilizados, los cuales son los descritos en el enunciado de la tarea.
+\begin{itemize}
+    \item \textbf{Procesador:} AMD Ryzen 5 2600 Six-Core Processor, 3.40 GHz (6 núcleos físicos, 12 procesadores lógicos).
+    \item \textbf{Memoria RAM:} 16.0 GB.
+    \item \textbf{Sistema Operativo:} Microsoft Windows 10 Education.
+    \item \textbf{Compilador:} g++ (GCC) versión 15.2.0.
+\end{itemize}
+
+Los conjuntos de datos (datasets) generados para la evaluación se ciñen a las especificaciones del enunciado de la tarea y se dividen según el problema a resolver. Para el análisis de algoritmos de ordenamiento, se instanciaron arreglos unidimensionales con tamaños que varían logarítmicamente desde $n=10$ hasta $n=10^7$ elementos. Estos arreglos fueron generados bajo tres distribuciones iniciales para estresar los algoritmos: elementos en orden aleatorio, en orden estrictamente ascendente y en orden estrictamente descendente.
+
+Por otro lado, para la evaluación de los algoritmos de multiplicación, se construyeron matrices cuadradas de dimensión $n \times n$, con $n$ variando entre 16 y 256. Con el fin de observar cómo la disposición espacial afecta el rendimiento, estas matrices se estructuraron en tres tipologías: densas (con valores distribuidos en la totalidad de la estructura), diagonales (con valores no nulos restringidos exclusivamente a la diagonal principal) y dispersas (con una alta proporción de ceros en el dominio matricial).

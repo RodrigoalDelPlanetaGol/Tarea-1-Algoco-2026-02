@@ -12,15 +12,12 @@
 #include <iostream>
 
 void patienceSort(std::vector<int>& arr) {
-    // Each pile is represented as a vector.
     std::vector<std::vector<int>> piles;
 
-    // Build piles.
     for (int value : arr) {
         int left = 0;
         int right = static_cast<int>(piles.size());
 
-        // Find the first pile whose top is >= value.
         while (left < right) {
             int mid = left + (right - left) / 2;
 
@@ -37,7 +34,6 @@ void patienceSort(std::vector<int>& arr) {
         }
     }
 
-    // Min-heap containing the current top of each pile.
     using Node = std::pair<int, int>;
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> heap;
 
@@ -46,7 +42,6 @@ void patienceSort(std::vector<int>& arr) {
         piles[i].pop_back();
     }
 
-    // Reconstruct sorted array.
     int index = 0;
 
     while (!heap.empty()) {

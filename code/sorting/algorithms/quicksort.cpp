@@ -3,7 +3,7 @@
  * GeeksforGeeks, "C++ Program for Quick Sort".
  * https://www.geeksforgeeks.org/cpp/cpp-program-for-quicksort/
  *
- * Adaptada a los requerimientos de este proyecto.
+ * Adaptada a los requerimientos de este proyecto con ajustes para el manejo de arreglos grandes.
  *
  * Mejoras de la implementación:
  * - Selección de pivote mediante mediana de tres.
@@ -18,16 +18,6 @@
 #include <vector>
 
 
-// ============================================================
-// Mediana de tres
-//
-// Devuelve el valor que queda en el medio entre:
-//
-//   arr[a], arr[b], arr[c]
-//
-// Esto evita utilizar sistemáticamente el último elemento
-// como pivote.
-// ============================================================
 
 static int medianOfThree(
     const std::vector<int>& arr,
@@ -62,19 +52,6 @@ static int medianOfThree(
 }
 
 
-// ============================================================
-// Quick Sort con partición de tres vías
-//
-// Después de la partición:
-//
-//   [ low ... lt-1 ]       < pivot
-//   [ lt  ... gt   ]       = pivot
-//   [ gt+1 ... high ]      > pivot
-//
-// Esto evita hacer recursión sobre todos los elementos que
-// tienen el mismo valor que el pivote.
-// ============================================================
-
 void quickSort(
     std::vector<int>& arr,
     int low,
@@ -95,10 +72,6 @@ void quickSort(
                 high
             );
 
-
-        // ----------------------------------------------------
-        // Partición de tres vías
-        // ----------------------------------------------------
 
         int lt = low;
 
@@ -135,17 +108,6 @@ void quickSort(
         }
 
 
-        // ----------------------------------------------------
-        // Tenemos:
-        //
-        // [low, lt-1] < pivot
-        // [lt, gt]    = pivot
-        // [gt+1,high] > pivot
-        //
-        // Procesamos recursivamente la partición menor.
-        // La mayor se deja para la siguiente iteración.
-        // ----------------------------------------------------
-
         const int leftSize =
             lt - low;
 
@@ -155,7 +117,6 @@ void quickSort(
 
         if (leftSize < rightSize) {
 
-            // Recursión sobre la izquierda.
 
             if (low < lt - 1) {
 
@@ -167,13 +128,13 @@ void quickSort(
             }
 
 
-            // Continuamos iterativamente con la derecha.
+
 
             low = gt + 1;
 
         } else {
 
-            // Recursión sobre la derecha.
+
 
             if (gt + 1 < high) {
 
@@ -185,7 +146,7 @@ void quickSort(
             }
 
 
-            // Continuamos iterativamente con la izquierda.
+
 
             high = lt - 1;
         }

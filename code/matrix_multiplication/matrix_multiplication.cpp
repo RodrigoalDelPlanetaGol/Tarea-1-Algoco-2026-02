@@ -32,10 +32,6 @@
 //   - Naive
 //   - Strassen
 //
-// En Linux, cada ejecución del algoritmo se realiza en un
-// proceso hijo independiente. Esto permite obtener el pico de
-// memoria residente (ru_maxrss) de ESA ejecución.
-//
 // Casos:
 //
 //   n = 16
@@ -46,7 +42,7 @@
 //
 //   n = 1024
 //
-// debido al costo computacional excesivo.
+// debido al tiempo excesivo de ejecución.
 // ============================================================
 
 
@@ -56,21 +52,12 @@ using Matriz = std::vector<std::vector<int>>;
 using Reloj = std::chrono::high_resolution_clock;
 
 
-// ============================================================
-// Límite experimental
-// ============================================================
+
 
 static const std::size_t MAX_MATRIX_N = 256;
 
 
-// ============================================================
-// Declaraciones de los algoritmos
-//
-// Implementaciones:
-//
-//   algorithms/naive.cpp
-//   algorithms/strassen.cpp
-// ============================================================
+
 
 Matriz naiveMultiply(
     const Matriz& A,
@@ -83,9 +70,7 @@ Matriz strassen(
 );
 
 
-// ============================================================
-// Rutas
-// ============================================================
+
 
 static const fs::path BASE_DIR = fs::path("data");
 
@@ -102,17 +87,7 @@ static const fs::path ARCHIVO_CSV =
     CARPETA_MEDICIONES / "matrix_measurements.csv";
 
 
-// ============================================================
-// Metadatos
-//
-// Formato:
-//
-//   n_tipo_dominio_muestra_lado.txt
-//
-// Ejemplo:
-//
-//   16_densa_D0_a_1.txt
-// ============================================================
+
 
 struct MetadatosArchivo {
 
@@ -128,14 +103,7 @@ struct MetadatosArchivo {
 };
 
 
-// ============================================================
-// Clave de un caso
-//
-// Cada caso posee dos matrices:
-//
-//   _1 -> A
-//   _2 -> B
-// ============================================================
+
 
 struct ClaveCaso {
 
@@ -167,9 +135,7 @@ struct ClaveCaso {
 };
 
 
-// ============================================================
-// Archivo perteneciente a un caso
-// ============================================================
+
 
 struct CasoArchivo {
 
@@ -178,10 +144,6 @@ struct CasoArchivo {
     MetadatosArchivo meta;
 };
 
-
-// ============================================================
-// Resultado de una medición
-// ============================================================
 
 struct Medicion {
 
@@ -209,9 +171,7 @@ struct Medicion {
 };
 
 
-// ============================================================
-// Resultado interno de una ejecución
-// ============================================================
+
 
 struct ResultadoEjecucion {
 
@@ -223,9 +183,6 @@ struct ResultadoEjecucion {
 };
 
 
-// ============================================================
-// Extraer metadatos del nombre
-// ============================================================
 
 static MetadatosArchivo extraer_metadatos(
     const fs::path& ruta
@@ -282,9 +239,6 @@ static MetadatosArchivo extraer_metadatos(
 }
 
 
-// ============================================================
-// Crear clave a partir de metadatos
-// ============================================================
 
 static ClaveCaso clave_de(
     const MetadatosArchivo& meta
@@ -299,12 +253,7 @@ static ClaveCaso clave_de(
 }
 
 
-// ============================================================
-// Leer matriz
-//
-// Los archivos contienen directamente los elementos de la
-// matriz, sin una línea inicial con dimensiones.
-// ============================================================
+
 
 static Matriz leer_matriz(
     const fs::path& ruta,
@@ -351,11 +300,7 @@ static Matriz leer_matriz(
 }
 
 
-// ============================================================
-// Escribir matriz
-//
-// La salida conserva el mismo formato que las entradas.
-// ============================================================
+
 
 static void escribir_matriz(
     const fs::path& ruta,
@@ -401,9 +346,7 @@ static void escribir_matriz(
 }
 
 
-// ============================================================
-// Comparar matrices
-// ============================================================
+
 
 static bool matrices_iguales(
     const Matriz& A,
@@ -455,11 +398,7 @@ static bool matrices_iguales(
 }
 
 
-// ============================================================
-// LINUX
-//
-// Funciones auxiliares para pipes.
-// ============================================================
+
 
 #ifdef __linux__
 
@@ -553,32 +492,7 @@ static void leer_todo(
 #endif
 
 
-// ============================================================
-// Ejecutar un algoritmo de manera experimental
-//
-// Linux:
-//
-//   Padre
-//      |
-//      +-- fork()
-//             |
-//             +-- hijo
-//                    |
-//                    +-- copia matriz
-//                    +-- mide tiempo
-//                    +-- ejecuta algoritmo
-//                    +-- devuelve resultado
-//             |
-//             +-- wait4()
-//                    |
-//                    +-- obtiene ru_maxrss
-//
-// Windows:
-//
-//   Se ejecuta directamente en el proceso actual.
-//
-// Las mediciones definitivas se realizarán en Linux.
-// ============================================================
+
 
 static ResultadoEjecucion ejecutar_experimentalmente(
 
@@ -624,9 +538,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     }
 
 
-    // ========================================================
-    // HIJO
-    // ========================================================
+    
 
     if (pid == 0) {
 
@@ -637,9 +549,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 
         try {
 
-            // ------------------------------------------------
-            // El hijo recibe sus propias copias.
-            // ------------------------------------------------
+            
 
             const Matriz matriz_A =
                 A;
@@ -648,17 +558,13 @@ static ResultadoEjecucion ejecutar_experimentalmente(
                 B;
 
 
-            // ------------------------------------------------
-            // Inicio de medición
-            // ------------------------------------------------
+            
 
             const auto inicio =
                 Reloj::now();
 
 
-            // ------------------------------------------------
-            // Ejecutar algoritmo
-            // ------------------------------------------------
+            
 
             Matriz resultado =
                 funcion(
@@ -667,9 +573,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
                 );
 
 
-            // ------------------------------------------------
-            // Fin de medición
-            // ------------------------------------------------
+            
 
             const auto fin =
                 Reloj::now();
@@ -683,9 +587,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
                 ).count();
 
 
-            // ------------------------------------------------
-            // Dimensiones
-            // ------------------------------------------------
+            
 
             const std::uint64_t n =
                 static_cast<std::uint64_t>(
@@ -701,9 +603,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
                     );
 
 
-            // ------------------------------------------------
-            // Enviar dimensiones
-            // ------------------------------------------------
+            
 
             escribir_todo(
                 pipe_resultado[1],
@@ -719,9 +619,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
             );
 
 
-            // ------------------------------------------------
-            // Enviar tiempo
-            // ------------------------------------------------
+            
 
             escribir_todo(
                 pipe_resultado[1],
@@ -730,9 +628,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
             );
 
 
-            // ------------------------------------------------
-            // Enviar matriz
-            // ------------------------------------------------
+            
 
             for (
                 std::size_t i = 0;
@@ -773,18 +669,14 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     }
 
 
-    // ========================================================
-    // PADRE
-    // ========================================================
+
 
     close(
         pipe_resultado[1]
     );
 
 
-    // --------------------------------------------------------
-    // Leer dimensiones
-    // --------------------------------------------------------
+
 
     std::uint64_t n = 0;
 
@@ -805,9 +697,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // --------------------------------------------------------
-    // Leer tiempo
-    // --------------------------------------------------------
+
 
     long long tiempo_us = 0;
 
@@ -819,9 +709,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // --------------------------------------------------------
-    // Leer matriz
-    // --------------------------------------------------------
+
 
     Matriz resultado(
         static_cast<std::size_t>(n),
@@ -856,9 +744,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    // --------------------------------------------------------
-    // Esperar al hijo y obtener su pico RSS.
-    // --------------------------------------------------------
+    
 
     int estado = 0;
 
@@ -906,7 +792,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
         tiempo_us;
 
 
-    // Linux: ru_maxrss está expresado en KB.
+    
 
     ejecucion.memoria_kb =
         static_cast<long long>(
@@ -919,9 +805,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 
 #else
 
-    // ========================================================
-    // FALLBACK
-    // ========================================================
+    
 
     const auto inicio =
         Reloj::now();
@@ -984,9 +868,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
 }
 
 
-// ============================================================
-// Medir algoritmo
-// ============================================================
+
 
 static Medicion medir_algoritmo(
 
@@ -1011,9 +893,7 @@ static Medicion medir_algoritmo(
 
 ) {
 
-    // --------------------------------------------------------
-    // Ejecutar algoritmo
-    // --------------------------------------------------------
+    
 
     const ResultadoEjecucion ejecucion =
         ejecutar_experimentalmente(
@@ -1064,16 +944,7 @@ static Medicion medir_algoritmo(
         ejecucion.memoria_kb;
 
 
-    // --------------------------------------------------------
-    // Verificación
-    //
-    // Naive:
-    //     siempre se considera correcta en esta etapa y pasa
-    //     a ser la referencia.
-    //
-    // Strassen:
-    //     se compara contra el resultado de Naive.
-    // --------------------------------------------------------
+    
 
     if (
         referencia == nullptr
@@ -1092,11 +963,7 @@ static Medicion medir_algoritmo(
     }
 
 
-    // --------------------------------------------------------
-    // Guardar matriz
-    //
-    // Fuera de la medición temporal.
-    // --------------------------------------------------------
+    
 
     const fs::path archivo_salida =
         carpeta_salida /
@@ -1122,9 +989,7 @@ static Medicion medir_algoritmo(
 }
 
 
-// ============================================================
-// CSV
-// ============================================================
+
 
 static void escribir_encabezado_csv(
     std::ofstream& salida
@@ -1171,9 +1036,7 @@ static void escribir_medicion_csv(
 }
 
 
-// ============================================================
-// Listar archivos
-// ============================================================
+
 
 static std::vector<CasoArchivo> listar_archivos(
     const fs::path& carpeta
@@ -1242,9 +1105,7 @@ static std::vector<CasoArchivo> listar_archivos(
     }
 
 
-    // --------------------------------------------------------
-    // Orden
-    // --------------------------------------------------------
+    
 
     std::sort(
         archivos.begin(),
@@ -1310,9 +1171,7 @@ static std::vector<CasoArchivo> listar_archivos(
 }
 
 
-// ============================================================
-// MAIN
-// ============================================================
+
 
 int main() {
 
@@ -1346,9 +1205,7 @@ int main() {
 #endif
 
 
-        // ----------------------------------------------------
-        // Crear carpetas
-        // ----------------------------------------------------
+        
 
         fs::create_directories(
             CARPETA_SALIDA
@@ -1359,9 +1216,7 @@ int main() {
         );
 
 
-        // ----------------------------------------------------
-        // Abrir CSV
-        // ----------------------------------------------------
+        
 
         std::ofstream csv(
             ARCHIVO_CSV,
@@ -1384,9 +1239,7 @@ int main() {
         );
 
 
-        // ----------------------------------------------------
-        // Obtener archivos
-        // ----------------------------------------------------
+        
 
         const auto archivos =
             listar_archivos(
@@ -1411,9 +1264,7 @@ int main() {
         }
 
 
-        // ----------------------------------------------------
-        // Agrupar _1 y _2
-        // ----------------------------------------------------
+       
 
         std::map<
             ClaveCaso,
@@ -1460,9 +1311,7 @@ int main() {
             << '\n';
 
 
-        // ----------------------------------------------------
-        // Contadores
-        // ----------------------------------------------------
+        
 
         std::size_t casos_procesados = 0;
 
@@ -1471,9 +1320,7 @@ int main() {
         std::size_t mediciones_realizadas = 0;
 
 
-        // ====================================================
-        // Procesar casos
-        // ====================================================
+        
 
         for (
             const auto& [clave, par] :
@@ -1492,9 +1339,7 @@ int main() {
                 + clave.muestra;
 
 
-            // ------------------------------------------------
-            // Verificar que exista A y B
-            // ------------------------------------------------
+            
 
             if (
                 par.first.empty() ||
@@ -1510,9 +1355,7 @@ int main() {
             }
 
 
-            // ------------------------------------------------
-            // Límite experimental
-            // ------------------------------------------------
+            
 
             if (
                 clave.n >
@@ -1555,9 +1398,7 @@ int main() {
                 << '\n';
 
 
-            // ------------------------------------------------
-            // Leer matrices
-            // ------------------------------------------------
+            
 
             const Matriz A =
                 leer_matriz(
@@ -1573,12 +1414,7 @@ int main() {
                 );
 
 
-            // =================================================
-            // NAIVE
-            //
-            // Su resultado será la referencia para validar
-            // Strassen.
-            // =================================================
+            
 
             std::cout
                 << "    Ejecutando naive... ";
@@ -1641,12 +1477,7 @@ int main() {
             ++mediciones_realizadas;
 
 
-            // ------------------------------------------------
-            // Leer nuevamente el resultado Naive desde el
-            // archivo para utilizarlo como referencia.
-            //
-            // Esto evita ejecutar Naive una segunda vez.
-            // ------------------------------------------------
+            
 
             const Matriz referencia =
                 leer_matriz(
@@ -1657,9 +1488,7 @@ int main() {
                 );
 
 
-            // =================================================
-            // STRASSEN
-            // =================================================
+            
 
             std::cout
                 << "    Ejecutando strassen... ";
@@ -1726,9 +1555,7 @@ int main() {
         }
 
 
-        // ====================================================
-        // RESUMEN
-        // ====================================================
+        
 
         std::cout
             << "========================================\n"
