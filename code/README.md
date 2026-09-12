@@ -14,7 +14,7 @@ matrix_multiplication/matrix_multiplication.cpp
 
 Este programa lee los datos de entrada de matrices desde `data/matrix_input/`, ejecuta los algoritmos Naive y Strassen, mide el tiempo de ejecución y el uso de memoria y guarda las matrices resultantes en `data/matrix_output/` y las mediciones en `data/matrix_measurements/matrix_measurements.csv`
 
-Para compilar y ejecutar el programa en Windows, se puede utilizar el botón de 'Run Code' (Ctrl+Alt+N) o bien, en Linux en una terminal con cd en `code/matrix_multiplication/` ejecutar el comando 'make' y luego 'make run'
+Para compilar y ejecutar el programa en Windows, se puede utilizar el botón de 'Run Code' (Ctrl+Alt+N) o bien, en Linux en una terminal con cd en `code/matrix_multiplication/` ejecutar el comando 'make' y luego 'make run' (Por favor, antes de ejecutar 'make' o 'make run', ejecutar 'make clean') Se recomienda encarecidamente optar por la ultima opción.
 
 Como observación, los casos con n = 1024 fueron omitidos por su alto coste de tiempo y recursos.
 
@@ -40,7 +40,7 @@ sorting/sorting.cpp
 
 Este programa lee los archivoss de los arreglos desde `data/array_input/`, ejecuta los cuatro algoritmos sobre los mismos casos de prueba, mide el tiempo de ejecución y el uso de memoria, y guarda los resultados en `data/array_output/`. Las mediciones se guardan en: `data/measurements/sorting_measurements.csv`
 
-Para compilar y ejecutar el programa en Windows, se puede utilizar el botón de 'Run Code' (Ctrl+Alt+N) o bien, en Linux en una terminal con cd en `code/sorting/` ejecutar el comando 'make' y luego 'make run'.
+Para compilar y ejecutar el programa en Windows, se puede utilizar el botón de 'Run Code' (Ctrl+Alt+N) o bien, en Linux en una terminal con cd en `code/sorting/` ejecutar el comando 'make' y luego 'make run' (Por favor, antes de ejecutar 'make' o 'make run', ejecutar 'make clean') Se recomienda encarecidamente optar por la ultima opción.
 
 Como observación, para el caso de 'QuickSort', los casos con tamaños extremadamente grandes, como los de n = 10^7, se omiten debido a su largo tiempo de ejecución.
 

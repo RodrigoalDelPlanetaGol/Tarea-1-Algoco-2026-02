@@ -1517,4 +1517,100 @@ LaTeX Font Info:    Redeclaring math accent \widetilde on input line 44.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-Package pgfplots notification 'compat/show suggested version=true': document has been generated
+Package pgfplots notification 'compat/show suggested version=true': document has been generated with the most recent feature set (\pgfplotsset{compat=1.18}).
+
+LaTeX Font Info:    Trying to load font information for FML+futmi on input line 46.
+(C:\Users\Equipo\AppData\Local\Programs\MiKTeX\tex/latex/fourier\fmlfutmi.fd
+File: fmlfutmi.fd 2004/10/30 Fontinst v1.926 font definitions for FML/futmi.
+)
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 11.03998pt on input line 46.
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 8.27998pt on input line 46.
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 6.43999pt on input line 46.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 46.
+ (C:\Users\Equipo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
+File: umsa.fd 2013/01/14 v3.01 AMS symbols A
+)
+LaTeX Font Info:    Trying to load font information for U+msb on input line 46.
+ (C:\Users\Equipo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
+File: umsb.fd 2013/01/14 v3.01 AMS symbols B
+)
+LaTeX Font Info:    Trying to load font information for U+rsfs on input line 46.
+ (C:\Users\Equipo\AppData\Local\Programs\MiKTeX\tex/latex/jknappen\ursfs.fd
+File: ursfs.fd 1998/03/24 rsfs font definition file (jk)
+)
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 11.03998pt on input line 46.
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 8.27998pt on input line 46.
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 6.43999pt on input line 46.
+ (sections/introduccion.tex) (sections/experiment_intro.tex
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 10.07397pt on input line 11.
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 7.63599pt on input line 11.
+LaTeX Font Info:    Font shape `FMX/futm/m/n' will be
+(Font)              scaled to size 5.51999pt on input line 11.
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 10.07397pt on input line 11.
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 7.63599pt on input line 11.
+LaTeX Font Info:    Font shape `U/futm/m/n' will be
+(Font)              scaled to size 5.51999pt on input line 11.
+ [1{C:/Users/Equipo/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/base/8r.enc}
+
+]) (sections/experiment_results.tex
+<../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png, id=41, 416.9979pt x 328.5876pt>
+File: ../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png Graphic file (type png)
+<use ../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png>
+Package pdftex.def Info: ../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png  used on input line 29.
+(pdftex.def)             Requested size: 226.57297pt x 178.5377pt.
+<../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png, id=43, 416.9979pt x 328.5876pt>
+File: ../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png Graphic file (type png)
+<use ../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png>
+Package pdftex.def Info: ../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png  used on input line 30.
+(pdftex.def)             Requested size: 226.57297pt x 178.5377pt.
+ [2]
+<../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png, id=55, 722.7pt x 433.62pt>
+File: ../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png Graphic file (type png)
+<use ../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png>
+Package pdftex.def Info: ../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png  used on input line 61.
+(pdftex.def)             Requested size: 283.22162pt x 169.93156pt.
+ [3 <../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png> <../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png>]) (sections/conclusions.tex)
+
+LaTeX Warning: Empty bibliography on input line 61.
+
+[4 <../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png>] (report.aux
+LaTeX Info: Redefining \sptext on input line 14.
+LaTeX Info: Redefining \. on input line 14.
+LaTeX Info: Redefining \% on input line 14.
+Package cleveref Info: loaded `spanish' language definitions on input line 14.
+)
+ ***********
+LaTeX2e <2025-11-01>
+L3 programming layer <2025-12-24>
+ ***********
+Package rerunfilecheck Info: File `report.out' has not changed.
+(rerunfilecheck)             Checksum: 56FE68D5A73449945094CBE0896D73AD;901.
+Package logreq Info: Writing requests to 'report.run.xml'.
+\openout1 = `report.run.xml'.
+
+ ) 
+Here is how much of TeX's memory you used:
+ 55770 strings out of 467870
+ 1280214 string characters out of 5417872
+ 2256768 words of memory out of 5000000
+ 83810 multiletter control sequences out of 15000+600000
+ 717672 words of font info for 128 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 107i,11n,110p,7207b,2142s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ <C:\Users\Equipo\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ectt1095.pk><C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/public/fourier/fourier-ms.pfb><C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putb8a.pfb><C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putr8a.pfb><C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putri8a.pfb>
+Output written on report.pdf (4 pages, 516220 bytes).
+PDF statistics:
+ 103 PDF objects out of 1000 (max. 8388607)
+ 15 named destinations out of 1000 (max. 500000)
+ 76 words of extra memory for PDF output out of 10000 (max. 10000000)
+

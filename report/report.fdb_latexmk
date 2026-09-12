@@ -1,12 +1,12 @@
 # Fdb version 4
-["biber report"] 0 "report.bcf" "report.bbl" "report" 1789175880.41949 -1
+["biber report"] 0 "report.bcf" "report.bbl" "report" 1789176010.604 -1
   "references.bib" 1786970482 1203 68417624b92d4cad67ce996846290956 ""
-  "report.bcf" 1789175879 108551 66f4bafccad88a84f77b14c7778652d8 "pdflatex"
+  "report.bcf" 1789176009 108551 66f4bafccad88a84f77b14c7778652d8 "pdflatex"
   (generated)
   "report.bbl"
   "report.blg"
   (rewritten before read)
-["pdflatex"] 1789175871.03328 "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" "report.pdf" "report" 1789175880.4207 0
+["pdflatex"] 1789176004.62576 "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" "report.pdf" "report" 1789176010.6055 0
   "../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png" 1788758707 170569 9bf76ccebcae4f716e816ef6fa140a82 ""
   "../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png" 1788759155 176139 236d57f5b7637c7b7c20140b36266924 ""
   "../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png" 1788759156 169453 895765e45b5b7397b5bed2e0b48a5c93 ""
@@ -303,13 +303,13 @@
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/tex/latex/xkeyval/xkeyval.sty" 1656236919 4937 4ce600ce9bd4ec84d0250eb6892fcf4f ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-abspage.sty" 1773584792 2269 91cd03da61ab1da00145ba8a81560051 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/tex/latex/zref/zref-base.sty" 1773584792 20785 8db5f0a2b2ce96dda9fac87ccab29449 ""
-  "author.tex" 1788758928 495 a60b7ce96855ad4f6891618215eb4f9d ""
+  "author.tex" 1789176003 496 51f87e059926dff6cb5f4e02c21a7db8 ""
   "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" 1788824744 1144 32950c242a47698f3f0bf12b2d7365aa ""
   "preamble.tex" 1786970482 2163 4b0cc777241a9fa0f82b663d831cc656 ""
-  "report.aux" 1789175879 2932 343053d46d57a15730eb6dd265feaced "pdflatex"
+  "report.aux" 1789176009 2932 343053d46d57a15730eb6dd265feaced "pdflatex"
   "report.bbl" 1788824402 486 76d65a242ec496c9b4361af646ff12cb "biber report"
-  "report.out" 1789175879 901 56fe68d5a73449945094cbe0896d73ad "pdflatex"
-  "report.run.xml" 1789175879 2319 85416a11bf768be6a1e5b1dccfd5e02c "pdflatex"
+  "report.out" 1789176009 901 56fe68d5a73449945094cbe0896d73ad "pdflatex"
+  "report.run.xml" 1789176009 2319 85416a11bf768be6a1e5b1dccfd5e02c "pdflatex"
   "report.tex" 1788824744 1144 32950c242a47698f3f0bf12b2d7365aa ""
   "sections/conclusions.tex" 1789175870 921 bc5f704c99ec7e06942ce9383d5030aa ""
   "sections/experiment_intro.tex" 1789175243 1721 cda5478f96150d112d6a798d1ae15225 ""

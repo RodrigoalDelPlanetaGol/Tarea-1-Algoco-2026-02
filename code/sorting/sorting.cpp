@@ -559,7 +559,7 @@ static ResultadoEjecucion ejecutar_experimentalmente(
     );
 
 
-    -
+    
 
     Arreglo resultado(
         static_cast<std::size_t>(
