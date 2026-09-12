@@ -1,12 +1,12 @@
 # Fdb version 4
-["biber report"] 0 "report.bcf" "report.bbl" "report" 1788835610.58456 -1
+["biber report"] 0 "report.bcf" "report.bbl" "report" 1789175880.41949 -1
   "references.bib" 1786970482 1203 68417624b92d4cad67ce996846290956 ""
-  "report.bcf" 1788835609 108551 66f4bafccad88a84f77b14c7778652d8 "pdflatex"
+  "report.bcf" 1789175879 108551 66f4bafccad88a84f77b14c7778652d8 "pdflatex"
   (generated)
   "report.bbl"
   "report.blg"
   (rewritten before read)
-["pdflatex"] 1788835604.83463 "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" "report.pdf" "report" 1788835610.58587 0
+["pdflatex"] 1789175871.03328 "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" "report.pdf" "report" 1789175880.4207 0
   "../code/matrix_multiplication/data/plots/matrix_multiplication/tiempo_ms_vs_n_densa.png" 1788758707 170569 9bf76ccebcae4f716e816ef6fa140a82 ""
   "../code/sorting/data/plots/sorting_tiempo_vs_n_aleatorio.png" 1788759155 176139 236d57f5b7637c7b7c20140b36266924 ""
   "../code/sorting/data/plots/sorting_tiempo_vs_n_ascendente.png" 1788759156 169453 895765e45b5b7397b5bed2e0b48a5c93 ""
@@ -44,7 +44,6 @@
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putb8a.pfb" 808450846 36580 a4f65c2d8b00147bac8a7ad4d88ca361 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putr8a.pfb" 808450846 36350 104fe5297af6bd60b05aac7d5588dbc3 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/adobe/utopia/putri8a.pfb" 808450846 37599 e8ddea9c2cc4dc899893aaab2072ac65 ""
-  "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/public/fourier/fourier-mcl.pfb" 1726393134 13002 76b3b19f03922c2b74fdd6dc787518a6 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/type1/public/fourier/fourier-ms.pfb" 1726393134 22238 87e9c1bfb269d3da7d96d9f4df8849d2 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/vf/public/fourier/futb8t.vf" 1726393134 2168 d2ac693e07cd79dbc2b914caee3e8df0 ""
   "C:/Users/Equipo/AppData/Local/Programs/MiKTeX/fonts/vf/public/fourier/futmii.vf" 1726393134 1332 62b87bc157157fd0616b8398929f8399 ""
@@ -307,15 +306,15 @@
   "author.tex" 1788758928 495 a60b7ce96855ad4f6891618215eb4f9d ""
   "c:/Users/Equipo/Documents/GitHub/Tarea-1-Algoco-2026-02/report/report.tex" 1788824744 1144 32950c242a47698f3f0bf12b2d7365aa ""
   "preamble.tex" 1786970482 2163 4b0cc777241a9fa0f82b663d831cc656 ""
-  "report.aux" 1788835609 2932 343053d46d57a15730eb6dd265feaced "pdflatex"
+  "report.aux" 1789175879 2932 343053d46d57a15730eb6dd265feaced "pdflatex"
   "report.bbl" 1788824402 486 76d65a242ec496c9b4361af646ff12cb "biber report"
-  "report.out" 1788835609 901 56fe68d5a73449945094cbe0896d73ad "pdflatex"
-  "report.run.xml" 1788835609 2319 85416a11bf768be6a1e5b1dccfd5e02c "pdflatex"
+  "report.out" 1789175879 901 56fe68d5a73449945094cbe0896d73ad "pdflatex"
+  "report.run.xml" 1789175879 2319 85416a11bf768be6a1e5b1dccfd5e02c "pdflatex"
   "report.tex" 1788824744 1144 32950c242a47698f3f0bf12b2d7365aa ""
-  "sections/conclusions.tex" 1788825170 1265 e070a5f0b1331effa7e05e5a767c30b9 ""
-  "sections/experiment_intro.tex" 1788825630 1713 0d871b928649389d18b727b6cc6d5f6e ""
-  "sections/experiment_results.tex" 1788835508 4318 81d4b538c9239e29fb5d4e7659d9935e ""
-  "sections/introduccion.tex" 1788835603 748 c2b5e1fd218cbf469d406cbc90a77536 ""
+  "sections/conclusions.tex" 1789175870 921 bc5f704c99ec7e06942ce9383d5030aa ""
+  "sections/experiment_intro.tex" 1789175243 1721 cda5478f96150d112d6a798d1ae15225 ""
+  "sections/experiment_results.tex" 1789175639 4034 904970794435c5c9b6746e6d0719c675 ""
+  "sections/introduccion.tex" 1789175043 696 2617b66a893567fd3bd3bd3f66600bb7 ""
   (generated)
   "report.aux"
   "report.bcf"

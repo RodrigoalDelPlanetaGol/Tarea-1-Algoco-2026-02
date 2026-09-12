@@ -27,10 +27,10 @@
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             },
             "detail": "Tarea dinámica para compilar sorting o matrix_multiplication según el archivo abierto."
-        }
+        },
     ],
     "version": "2.0.0"
 }

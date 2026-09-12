@@ -32,7 +32,7 @@ Para evaluar el crecimiento asintótico, la Figura \ref{fig:sorting_growth} pres
     \label{fig:sorting_growth}
 \end{figure}
 
-En la Figura \ref{fig:sorting_growth}, se confirma que todos los algoritmos presentan una tendencia lineal-logarítmica en escala log-log, consecuente con la complejidad teórica $\mathcal{O}(n \log n)$ esperada. Las líneas mantienen pendientes similares; la diferencia principal radica en su desplazamiento vertical, el cual está determinado por las constantes ocultas en las operaciones base de cada método y por la eficiencia en el uso de la memoria caché.
+En la Figura \ref{fig:sorting_growth}, se confirma que todos los algoritmos presentan una tendencia lineal-logarítmica. Las líneas mantienen pendientes similares; la diferencia principal radica en su desplazamiento vertical, el cual está determinado por el entorno sobre el cual se ejecuta el experimento y su propia gestión de los recursos computacionales.
 
 \subsection{Multiplicación de Matrices}
 
@@ -63,4 +63,4 @@ Este fenómeno se visualiza claramente en la Figura \ref{fig:matrix_growth}, don
     \label{fig:matrix_growth}
 \end{figure}
 
-Aunque el algoritmo de Strassen reduce la complejidad asintótica del $\mathcal{O}(n^3)$ estándar a $\mathcal{O}(n^{\log_2 7}) \approx \mathcal{O}(n^{2.81})$, la Figura \ref{fig:matrix_growth} evidencia que las constantes ocultas asociadas a la reserva de memoria, copias de sub-arreglos y las llamadas recursivas son masivas. Hasta el dominio evaluado de $n=256$, la ventaja del exponente asintótico no es capaz de compensar el peso operativo, demostrando que Strassen solo sería práctico cruzando un umbral de $n$ considerablemente mayor.
+La Figura \ref{fig:matrix_growth} evidencia que el manejo de la reserva de memoria, copias de sub-arreglos y las llamadas recursivas son masivas. Hasta el dominio evaluado de $n=256$, la ventaja del exponente asintótico no es capaz de compensar el peso operativo, demostrando que Strassen solo sería práctico cruzando un umbral de $n$ considerablemente mayor.
